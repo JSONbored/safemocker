@@ -1,0 +1,73 @@
+{
+  "name": "safemocker",
+  "version": "0.1.0",
+  "description": "A type-safe, Jest & Vitest-compatible mock for next-safe-action. Replicates real middleware behavior and returns proper SafeActionResult structure. Fun name: 'safe' + 'mocker' = mocking tool for next-safe-action!",
+  "keywords": [
+    "next-safe-action",
+    "mock",
+    "testing",
+    "jest",
+    "vitest",
+    "type-safe",
+    "server-actions"
+  ],
+  "license": "MIT",
+  "author": "JSONbored",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JSONbored/safemocker"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./jest": {
+      "types": "./dist/jest-adapter.d.ts",
+      "import": "./dist/jest-adapter.mjs",
+      "require": "./dist/jest-adapter.js"
+    },
+    "./vitest": {
+      "types": "./dist/vitest-adapter.d.ts",
+      "import": "./dist/vitest-adapter.mjs",
+      "require": "./dist/vitest-adapter.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsup && pnpm build:types",
+    "build:types": "tsc --declaration --outDir dist",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "pnpm build"
+  },
+  "peerDependencies": {
+    "next-safe-action": "^8.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "next": "^16.1.1",
+    "next-safe-action": "^8.0.11",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.0.0",
+    "zod": "^4.2.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
