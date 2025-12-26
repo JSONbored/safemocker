@@ -23,16 +23,26 @@ runtimes:
 # Linter configuration
 lint:
   enabled:
-    # Essential linters for TypeScript/JavaScript projects
+    # Essential lightweight linters for TypeScript/JavaScript projects
+    # Only fast, incremental linters enabled for continuous execution
     - eslint@9.39.2
     - prettier@3.7.4
     - typescript@5.9.3
-    - jest  # For test linting and flaky test detection
+    # jest  # DISABLED: Heavy linter - runs via git hooks only (see trunk-check-pre-push)
     - markdownlint@0.47.0
     - sort-package-json@3.6.0
     - actionlint@1.7.9  # GitHub Actions linting
     - yamllint@1.37.1
     - taplo@0.10.0  # TOML linting (for cliff.toml, etc.)
+  
+  # Global path exclusions - prevent processing of build outputs and dependencies
+  exclude:
+    - node_modules/**
+    - dist/**
+    - build/**
+    - coverage/**
+    - "*.log"
+    - "*.tsbuildinfo"
   
   # Default file size limit (4MB)
   default_max_file_size: 4194304
@@ -43,19 +53,76 @@ lint:
     - name: eslint
       direct_configs:
         - .trunk/configs/eslint.config.mjs
+      # Path optimization: Only lint source files, exclude tests and generated files
+      include:
+        - src/**/*.{ts,tsx}
+        - examples/**/*.{ts,tsx}
+      exclude:
+        - "**/*.test.{ts,tsx}"
+        - "**/*.spec.{ts,tsx}"
+        - "**/__tests__/**"
+        - "**/__mocks__/**"
+        - node_modules/**
+        - dist/**
+        - build/**
+        - coverage/**
     # Prettier configuration - located in .trunk/configs/
     - name: prettier
       direct_configs:
         - .trunk/configs/prettier.json
         - .trunk/configs/.prettierignore
-    # Jest configuration - located in .trunk/configs/
-    - name: jest
-      run_timeout: 10m  # Tests may take longer
-      direct_configs:
-        - .trunk/configs/jest.config.cjs
+      # Path optimization: Exclude generated files
+      exclude:
+        - node_modules/**
+        - dist/**
+        - build/**
+        - coverage/**
+        - "**/*.tsbuildinfo"
+        - "**/*.log"
+    # Jest configuration - DISABLED from continuous execution
+    # Runs via git hooks only (see trunk-check-pre-push action)
+    # - name: jest
+    #   run_timeout: 10m  # Tests may take longer
+    #   direct_configs:
+    #     - .trunk/configs/jest.config.cjs
     # TypeScript configuration
     - name: typescript
       run_timeout: 5m  # Type checking timeout
+      # Path optimization: Only check source files
+      include:
+        - src/**/*.{ts,tsx}
+        - examples/**/*.{ts,tsx}
+      exclude:
+        - "**/*.test.{ts,tsx}"
+        - "**/*.spec.{ts,tsx}"
+        - "**/__tests__/**"
+        - node_modules/**
+        - dist/**
+        - build/**
+    # Markdown linters - only process markdown files
+    - name: markdownlint
+      include:
+        - "**/*.md"
+      exclude:
+        - node_modules/**
+        - dist/**
+        - build/**
+    # YAML linters - only process YAML files
+    - name: yamllint
+      include:
+        - "**/*.{yaml,yml}"
+      exclude:
+        - node_modules/**
+        - dist/**
+        - build/**
+    # TOML linter - only process TOML files
+    - name: taplo
+      include:
+        - "**/*.toml"
+      exclude:
+        - node_modules/**
+        - dist/**
+        - build/**
 
 # Actions (git hooks and automation)
 actions:
