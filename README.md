@@ -1,20 +1,16 @@
 <div align="center">
 
-# safemocker
+![safemocker](https://socialify.git.ci/JSONbored/safemocker/image?custom_description=Type-safe+mock+for+next-safe-action+v8.&description=1&font=Source+Code+Pro&forks=1&issues=1&name=1&owner=1&pattern=Plus&pulls=1&stargazers=1&theme=Dark)
 
-**A type-safe, Jest & Vitest-compatible mock for `next-safe-action` v8**
-
-Replicates real middleware behavior and returns proper `SafeActionResult` structure.
-
-**Package Info**
 [![npm version](https://img.shields.io/npm/v/@jsonbored/safemocker?style=flat-square)](https://www.npmjs.com/package/@jsonbored/safemocker)
 [![npm downloads](https://img.shields.io/npm/dm/@jsonbored/safemocker?style=flat-square)](https://www.npmjs.com/package/@jsonbored/safemocker)
 [![License](https://img.shields.io/npm/l/@jsonbored/safemocker?style=flat-square)](https://github.com/JSONbored/safemocker/blob/main/LICENSE)
 
-**Status**
 [![CI](https://github.com/JSONbored/safemocker/workflows/CI/badge.svg?style=flat-square)](https://github.com/JSONbored/safemocker/actions)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
+
+`safemocker` solves the critical problem of testing [next-safe-action](https://github.com/TheEdoRan/next-safe-action) v8 in Jest environments where ESM modules (`.mjs` files) cannot be directly imported. It provides a comprehensive mocking solution that's type-safe, robust, and extensive, allowing easy testing for all next-safe-action usage throughout your project.
 
 </div>
 
@@ -54,8 +50,6 @@ Replicates real middleware behavior and returns proper `SafeActionResult` struct
 - [🔗 Related Projects](#-related-projects)
 
 ## ✨ Features
-
-`safemocker` solves the critical problem of testing `next-safe-action` v8 in Jest environments where ESM modules (`.mjs` files) cannot be directly imported. It provides a comprehensive mocking solution that:
 
 - ✅ **Works with Jest** - Solves ESM compatibility issues (primary use case)
 - ✅ **Works with Vitest** - Even with ESM support, mocking provides faster tests, easier control, consistent patterns, and better error scenario testing
