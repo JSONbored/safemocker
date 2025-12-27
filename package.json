@@ -1,6 +1,6 @@
 {
   "name": "@jsonbored/safemocker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A type-safe, Jest & Vitest-compatible mock for next-safe-action. Replicates real middleware behavior and returns proper SafeActionResult structure. Fun name: 'safe' + 'mocker' = mocking tool for next-safe-action!",
   "keywords": [
     "next-safe-action",
