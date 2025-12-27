@@ -291,10 +291,12 @@ jobs:
           fi
           
           # Check if changelog already has this version (from previous failed run)
-          if grep -q "## \[$NEW_VERSION\]" CHANGELOG.md 2>/dev/null; then
+          # Use -F for fixed string matching (brackets are literal, not regex)
+          if grep -Fq "## [$NEW_VERSION]" CHANGELOG.md 2>/dev/null; then
             echo "⚠️ Changelog already contains version $NEW_VERSION, checking if it has content..."
             # If the version exists but has no content (only header), regenerate
-            if grep -A 10 "## \[$NEW_VERSION\]" CHANGELOG.md | grep -q "^###"; then
+            # Use -F for fixed string matching
+            if grep -FA 10 "## [$NEW_VERSION]" CHANGELOG.md | grep -q "^###"; then
               echo "✅ Changelog already has content for version $NEW_VERSION, skipping generation"
               echo "CHANGELOG_UPDATED=true" >> $GITHUB_OUTPUT
               exit 0
@@ -373,12 +375,6 @@ jobs:
           # Check if changelog has content (more than just the header)
           VERSION_LINES=$(awk -v version="$NEW_VERSION" '/^## \[/ { if (index($0, "[" version "]") > 0) { found=1; next } if (found && /^## \[/) exit; if (found) count++ } END { print count+0 }' CHANGELOG.md)
           echo "🔍 DEBUG: Version $NEW_VERSION section has $VERSION_LINES lines of content"
-          
-          if [ "$VERSION_LINES" -gt 2 ]; then
-            echo "✅ Changelog generated with content for version $NEW_VERSION"
-          else
-            echo "⚠️ Changelog generated but version $NEW_VERSION section appears empty"
-          fi
           
           # Verify changelog was updated
           if git diff --quiet CHANGELOG.md; then

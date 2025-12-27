@@ -18,18 +18,47 @@ body = """
 
 {% for group, commits in commits | group_by(attribute="group") %}\
 ### {{ group | upper_first }}
-{% for commit in commits %}
-- {{ commit.message | split(pat="\n") | first | trim }}
+{% for commit in commits %}\
+{% if commit.remote.pr_labels is containing("skip-release-notes") %}\
+{% else %}\
+- {{ commit.message | split(pat="\n") | first | trim }}\
+{% if commit.remote.username %} by @{{ commit.remote.username }}{%- endif %}\
+{% if commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}](https://github.com/JSONbored/safemocker/pull/{{ commit.remote.pr_number }}){%- endif %}
+{% endif %}\
 {% endfor %}
 
 {% endfor %}\
+{% if github.contributors | filter(attribute="is_first_time", value=true) | length > 0 %}
+### New Contributors
+{% for contributor in github.contributors | filter(attribute="is_first_time", value=true) %}
+- @{{ contributor.username }} made their first contribution in [#{{ contributor.pr_number }}](https://github.com/JSONbored/safemocker/pull/{{ contributor.pr_number }})
+{% endfor %}
+
+{% endif %}\
+{% if statistics %}
+### Statistics
+- {{ statistics.commit_count }} commit{% if statistics.commit_count != 1 %}s{% endif %} in this release
+- {{ statistics.conventional_commit_count }} conventional commit{% if statistics.conventional_commit_count != 1 %}s{% endif %}
+{% if statistics.links | length > 0 %}
+- {{ statistics.links | length }} linked issue{% if statistics.links | length != 1 %}s{% endif %}/PR{% if statistics.links | length != 1 %}s{% endif %}
+{% endif %}
+{% if statistics.days_passed_since_last_release %}
+- {{ statistics.days_passed_since_last_release }} day{% if statistics.days_passed_since_last_release != 1 %}s{% endif %} since last release
+{% endif %}
+
+{% endif %}\
 {% else %}\
 ## [Unreleased]
 
 {% for group, commits in commits | group_by(attribute="group") %}\
 ### {{ group | upper_first }}
-{% for commit in commits %}
-- {{ commit.message | split(pat="\n") | first | trim }}
+{% for commit in commits %}\
+{% if commit.remote.pr_labels is containing("skip-release-notes") %}\
+{% else %}\
+- {{ commit.message | split(pat="\n") | first | trim }}\
+{% if commit.remote.username %} by @{{ commit.remote.username }}{%- endif %}\
+{% if commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}](https://github.com/JSONbored/safemocker/pull/{{ commit.remote.pr_number }}){%- endif %}
+{% endif %}\
 {% endfor %}
 
 {% endfor %}\
@@ -60,6 +89,14 @@ filter_commits = true
 # Ignores other tags like alpha, beta, rc, etc.
 tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
 
+# Squash Merge Support:
+# git-cliff automatically processes all commits in the repository, including squash merge commits.
+# When a PR is squash merged, GitHub creates a single commit with:
+# - Commit message: The PR title (should follow conventional commits: feat:, fix:, etc.)
+# - Commit body: The PR description (optional)
+# git-cliff processes this commit just like any other commit, so squash merges work seamlessly.
+# The commit_preprocessors above handle PR references and merge messages automatically.
+
 commit_parsers = [
   { message = "^feat", group = "Added" },
   { message = "^fix", group = "Fixed" },
@@ -74,6 +111,12 @@ commit_parsers = [
   { message = "^ci", skip = true },
   { message = "^build", skip = true },
   { message = "^revert", group = "Fixed" },
+  # Advanced: PR label-based grouping (optional)
+  # Uncomment to group commits by PR labels instead of commit message prefixes
+  # This requires GitHub integration (GITHUB_TOKEN) to work
+  # Example: Group commits with "enhancement" label into "Enhancements" group
+  # { field = "github.pr_labels", pattern = "enhancement", group = "Enhancements" },
+  # { field = "github.pr_labels", pattern = "bug", group = "Bug Fixes" },
 ]
 
 protect_breaking_commits = true
@@ -87,10 +130,16 @@ link_parsers = [
 
 commit_preprocessors = [
   # Handle GitHub PR merge messages (standard format)
+  # Note: Squash merges create a single commit with the PR title/description
+  # git-cliff processes all commits, including squash merge commits
+  # The commit message from squash merges should follow conventional commits (feat:, fix:, etc.)
   { pattern = '^Merge pull request #(\\d+)', replace = "([#${1}](https://github.com/JSONbored/safemocker/pull/${1}))" },
+  # Handle merge commits with PR numbers in different formats
+  { pattern = '^Merge PR #(\\d+)', replace = "([#${1}](https://github.com/JSONbored/safemocker/pull/${1}))" },
   # Handle Azure DevOps PR merge messages
   { pattern = '^Merged PR #\\d+: (.+)', replace = "$1" },
-  # Handle PR references in commit messages (e.g., "fix: issue (#123)")
+  # Handle PR references in commit messages (e.g., "fix: issue (#123)" or "fix: issue #123")
+  # This works with squash merges where PR references are included in the commit message
   { pattern = '\\(#(\\d+)\\)', replace = "([#${1}](https://github.com/JSONbored/safemocker/pull/${1}))" },
   # Handle standalone PR references (space before #, followed by digits, then non-digit or end)
   { pattern = ' #(\\d+)([^0-9]|$)', replace = " [#${1}](https://github.com/JSONbored/safemocker/pull/${1})${2}" },

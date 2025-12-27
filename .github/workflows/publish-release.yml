@@ -13,6 +13,19 @@
 # **Triggers:**
 # - Tag push matching v*.*.* pattern (automatic, triggered by version-bump.yml)
 # - Manual workflow_dispatch (with tag input for re-publishing)
+#
+# **npm Trusted Publishing Requirements:**
+# CRITICAL: This workflow filename (publish-release.yml) MUST exactly match the
+# workflow filename configured in npm trusted publisher settings.
+# 
+# Required npm trusted publisher configuration:
+# - Organization/User: JSONbored
+# - Repository: safemocker (or JSONbored/safemocker)
+# - Workflow filename: publish-release.yml (must match this file name exactly)
+# - Environment: production (must match the environment name below)
+#
+# See: https://docs.npmjs.com/trusted-publishers/
+# Documentation: .cursor/npm-trusted-publishing-setup.md
 name: Publish Release
 
 on:
@@ -32,10 +45,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     
-    # CRITICAL: Must match npm trusted publisher environment configuration
-    # Environment must be created in repository settings: Settings → Environments → New environment → "production"
-    environment:
-      name: production
+    # CRITICAL: Environment name must exactly match npm trusted publisher configuration
+    # This workflow filename (publish-release.yml) must also match npm config
+    # Required npm settings:
+    #   - Workflow filename: publish-release.yml
+    #   - Environment: production
+    #   - Repository: JSONbored/safemocker
+    #   - Organization: JSONbored
+    environment: production
     
     permissions:
       contents: write  # Required to create GitHub releases
@@ -138,7 +155,7 @@ jobs:
           
           echo "🔍 DEBUG: Publishing @jsonbored/safemocker@$VERSION to npm..."
           echo "🔍 DEBUG: Using trusted publishing (OIDC) - no NODE_AUTH_TOKEN needed"
-          echo "🔍 DEBUG: Environment: production (configured in job)"
+          echo "🔍 DEBUG: Environment: ${{ github.environment }}"
           echo "🔍 DEBUG: Repository: ${{ github.repository }}"
           
           # For trusted publishing, npm automatically uses OIDC token from GitHub Actions

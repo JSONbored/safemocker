@@ -47,3 +47,27 @@ jobs:
         run: pnpm test:coverage
         continue-on-error: true
 
+      - name: Validate changelog format
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Verify changelog has proper structure
+            if ! grep -q "^# Changelog" CHANGELOG.md; then
+              echo "❌ Error: Invalid changelog header - expected '# Changelog'"
+              exit 1
+            fi
+            
+            # Verify changelog follows Keep a Changelog format
+            if ! grep -q "Keep a Changelog" CHANGELOG.md; then
+              echo "⚠️ Warning: Changelog may not follow Keep a Changelog format"
+            fi
+            
+            # Verify changelog has at least one version entry or [Unreleased] section
+            if ! grep -qE "^## \[" CHANGELOG.md; then
+              echo "⚠️ Warning: Changelog has no version entries"
+            fi
+            
+            echo "✅ Changelog format validation passed"
+          else
+            echo "ℹ️ CHANGELOG.md not found (this is okay for new repositories)"
+          fi
+
