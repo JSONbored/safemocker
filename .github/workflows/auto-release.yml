@@ -186,10 +186,27 @@ jobs:
         id: changelog
         if: steps.commits.outputs.SKIP_RELEASE != 'true'
         run: |
-          # Generate changelog entry for the NEW version (not current version)
-          # This ensures we create a new section instead of regenerating existing one
+          # Generate changelog entry for unreleased commits (since last tag)
+          # Then replace [Unreleased] with the new version
           NEW_VERSION="${{ steps.calculate_version.outputs.NEW_VERSION }}"
-          pnpm exec git-cliff --config cliff.toml --tag "v$NEW_VERSION"
+          LAST_TAG="${{ steps.last_tag.outputs.TAG }}"
+          
+          # Check if changelog already has this version (from previous failed run)
+          if grep -q "## \[$NEW_VERSION\]" CHANGELOG.md; then
+            echo "⚠️ Changelog already contains version $NEW_VERSION, skipping generation"
+            echo "CHANGELOG_UPDATED=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Generate changelog for unreleased commits
+          pnpm exec git-cliff --config cliff.toml --unreleased --latest
+          
+          # Replace [Unreleased] with the new version in the changelog
+          if [ -f CHANGELOG.md ]; then
+            # Use sed to replace [Unreleased] with [NEW_VERSION] and add date
+            TODAY=$(date +%Y-%m-%d)
+            sed -i "s/## \[Unreleased\]/## [$NEW_VERSION] - $TODAY/" CHANGELOG.md
+          fi
           
           # Verify changelog was updated
           if git diff --quiet CHANGELOG.md; then
