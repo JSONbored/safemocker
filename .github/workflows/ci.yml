@@ -21,15 +21,15 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
         with:
           version: 10
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'pnpm'
@@ -46,4 +46,28 @@ jobs:
       - name: Test coverage
         run: pnpm test:coverage
         continue-on-error: true
+
+      - name: Validate changelog format
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Verify changelog has proper structure
+            if ! grep -q "^# Changelog" CHANGELOG.md; then
+              echo "❌ Error: Invalid changelog header - expected '# Changelog'"
+              exit 1
+            fi
+            
+            # Verify changelog follows Keep a Changelog format
+            if ! grep -q "Keep a Changelog" CHANGELOG.md; then
+              echo "⚠️ Warning: Changelog may not follow Keep a Changelog format"
+            fi
+            
+            # Verify changelog has at least one version entry or [Unreleased] section
+            if ! grep -qE "^## \[" CHANGELOG.md; then
+              echo "⚠️ Warning: Changelog has no version entries"
+            fi
+            
+            echo "✅ Changelog format validation passed"
+          else
+            echo "ℹ️ CHANGELOG.md not found (this is okay for new repositories)"
+          fi
 

@@ -46,21 +46,23 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           # CRITICAL: fetch-depth: 0 needed for git-cliff to access full commit history
           fetch-depth: 0
-          # Use main branch for workflow_dispatch, otherwise use PR ref
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
+          # Always checkout main branch (both PR merges and workflow_dispatch should use main)
+          # For PR merges: github.ref points to PR ref, but we want the merged state on main
+          # For workflow_dispatch: use main branch
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
         with:
           version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'pnpm'
@@ -275,11 +277,26 @@ jobs:
           echo "🔍 DEBUG: Generating changelog for version $NEW_VERSION"
           echo "🔍 DEBUG: Base tag: $LAST_TAG"
           
+          # Verify GITHUB_TOKEN is set for GitHub API access
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "⚠️ Warning: GITHUB_TOKEN is not set. GitHub integration features (PR links, usernames, contributors) will not be available."
+            echo "🔍 DEBUG: This is expected if running locally without GITHUB_TOKEN"
+          else
+            echo "✅ GITHUB_TOKEN is set - GitHub API integration enabled"
+            echo "🔍 DEBUG: GitHub API will be used for:"
+            echo "  - PR links in commit messages"
+            echo "  - Contributor usernames"
+            echo "  - PR titles and labels"
+            echo "  - First-time contributor detection"
+          fi
+          
           # Check if changelog already has this version (from previous failed run)
-          if grep -q "## \[$NEW_VERSION\]" CHANGELOG.md 2>/dev/null; then
+          # Use -F for fixed string matching (brackets are literal, not regex)
+          if grep -Fq "## [$NEW_VERSION]" CHANGELOG.md 2>/dev/null; then
             echo "⚠️ Changelog already contains version $NEW_VERSION, checking if it has content..."
             # If the version exists but has no content (only header), regenerate
-            if grep -A 10 "## \[$NEW_VERSION\]" CHANGELOG.md | grep -q "^###"; then
+            # Use -F for fixed string matching
+            if grep -FA 10 "## [$NEW_VERSION]" CHANGELOG.md | grep -q "^###"; then
               echo "✅ Changelog already has content for version $NEW_VERSION, skipping generation"
               echo "CHANGELOG_UPDATED=true" >> $GITHUB_OUTPUT
               exit 0
@@ -309,14 +326,28 @@ jobs:
           
           # Use --tag with --latest --unreleased to generate versioned changelog directly
           # This generates a changelog entry with [NEW_VERSION] instead of [Unreleased]
-          # --prepend is configured in cliff.toml, so it will prepend to CHANGELOG.md
+          # --output CHANGELOG.md explicitly writes to the file (required when using --tag)
+          # --prepend is configured in cliff.toml, so it will prepend to existing CHANGELOG.md
           # --verbose provides debugging information
           # --topo-order ensures tags are sorted topologically (important for complex branching)
           echo "🔍 DEBUG: Running git-cliff to generate versioned changelog..."
-          echo "🔍 Command: pnpm exec git-cliff --config cliff.toml --tag v$NEW_VERSION --latest --unreleased --verbose --topo-order"
+          echo "🔍 Command: pnpm exec git-cliff --config cliff.toml --tag v$NEW_VERSION --latest --unreleased --output CHANGELOG.md --verbose --topo-order"
           
           # Generate versioned changelog (this prepends to CHANGELOG.md with [NEW_VERSION] header)
-          pnpm exec git-cliff --config cliff.toml --tag "v$NEW_VERSION" --latest --unreleased --verbose --topo-order
+          # CRITICAL: --output is required to write to file when using --tag
+          # GITHUB_TOKEN enables GitHub API access for PR links, usernames, and contributor data
+          echo "🔍 DEBUG: Executing git-cliff with GitHub integration..."
+          pnpm exec git-cliff --config cliff.toml --tag "v$NEW_VERSION" --latest --unreleased --output CHANGELOG.md --verbose --topo-order
+          
+          # Verify GitHub integration worked (check for PR links or usernames in changelog)
+          if [ -n "$GITHUB_TOKEN" ]; then
+            if grep -qE "\[#[0-9]+\]|@[a-zA-Z0-9-]+" CHANGELOG.md 2>/dev/null; then
+              echo "✅ GitHub integration successful - PR links and/or usernames found in changelog"
+            else
+              echo "⚠️ Warning: GitHub integration may not have worked - no PR links or usernames found"
+              echo "🔍 DEBUG: This may be normal if commits don't have associated PRs"
+            fi
+          fi
           
           # Verify git-cliff generated content
           if [ ! -f CHANGELOG.md ]; then
@@ -325,22 +356,25 @@ jobs:
           fi
           
           # Verify the version entry was created
-          if ! grep -q "## \[$NEW_VERSION\]" CHANGELOG.md; then
-            echo "❌ Changelog was generated but version $NEW_VERSION entry not found"
-            echo "🔍 DEBUG: First 20 lines of CHANGELOG.md:"
-            head -20 CHANGELOG.md
+          # Use -F for fixed string matching (brackets are literal, not regex)
+          if ! grep -Fq "## [$NEW_VERSION]" CHANGELOG.md; then
+            echo "❌ Error: Changelog was generated but version $NEW_VERSION entry not found" >&2
+            echo "🔍 DEBUG: First 20 lines of CHANGELOG.md:" >&2
+            head -20 CHANGELOG.md >&2
             exit 1
+          fi
+          
+          # Validate changelog has content (not just header)
+          if ! grep -FA 5 "## [$NEW_VERSION]" CHANGELOG.md | grep -q "^###"; then
+            echo "⚠️ Warning: Changelog section for version $NEW_VERSION appears empty (no subsections found)"
+            echo "🔍 DEBUG: This may indicate no commits were categorized for this version"
+          else
+            echo "✅ Changelog generated with content for version $NEW_VERSION"
           fi
           
           # Check if changelog has content (more than just the header)
           VERSION_LINES=$(awk -v version="$NEW_VERSION" '/^## \[/ { if (index($0, "[" version "]") > 0) { found=1; next } if (found && /^## \[/) exit; if (found) count++ } END { print count+0 }' CHANGELOG.md)
           echo "🔍 DEBUG: Version $NEW_VERSION section has $VERSION_LINES lines of content"
-          
-          if [ "$VERSION_LINES" -gt 2 ]; then
-            echo "✅ Changelog generated with content for version $NEW_VERSION"
-          else
-            echo "⚠️ Changelog generated but version $NEW_VERSION section appears empty"
-          fi
           
           # Verify changelog was updated
           if git diff --quiet CHANGELOG.md; then
@@ -407,22 +441,41 @@ jobs:
 
           echo "🔍 DEBUG: Pushing commit to main..."
           # Push commit first (ensures commit is on remote before tag)
-          git push --force-with-lease origin main
+          # Use regular push (not force) since we're pushing to main after merge
+          if ! git push origin main; then
+            echo "❌ Error: Git push to main failed" >&2
+            echo "🔍 DEBUG: This may indicate a conflict or permission issue" >&2
+            exit 1
+          fi
 
           echo "🔍 DEBUG: Verifying commit push succeeded..."
           # Verify commit push succeeded
-          git fetch origin main --depth=1
+          git fetch origin main
           LOCAL_HEAD=$(git rev-parse HEAD)
           REMOTE_HEAD=$(git rev-parse origin/main)
           if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
-            echo "❌ Git push failed: local HEAD ($LOCAL_HEAD) does not match origin/main ($REMOTE_HEAD)" >&2
+            echo "❌ Error: Git push failed - local HEAD ($LOCAL_HEAD) does not match origin/main ($REMOTE_HEAD)" >&2
+            echo "🔍 DEBUG: This indicates the push did not succeed" >&2
             exit 1
           fi
           echo "✅ Commit push verified: local and remote are in sync"
 
           echo "🔍 DEBUG: Creating tag v$NEW_VERSION..."
+          # Extract changelog summary for tag message (first 3 commit messages or first 200 chars)
+          CHANGELOG_SUMMARY=$(grep -A 50 "## \[$NEW_VERSION\]" CHANGELOG.md 2>/dev/null | grep "^- " | head -3 | sed 's/^- //' | tr '\n' '; ' | cut -c1-200 || echo "")
+          
+          # Build tag message with version and summary
+          # Use a temporary file to handle multi-line tag messages safely
+          TAG_MSG_FILE=$(mktemp)
+          echo "Release v$NEW_VERSION" > "$TAG_MSG_FILE"
+          if [ -n "$CHANGELOG_SUMMARY" ]; then
+            echo "" >> "$TAG_MSG_FILE"
+            echo "$CHANGELOG_SUMMARY" >> "$TAG_MSG_FILE"
+          fi
+          
           # Create and push tag separately (ensures tag push event triggers publish-release.yml workflow)
-          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git tag -a "v$NEW_VERSION" -F "$TAG_MSG_FILE"
+          rm -f "$TAG_MSG_FILE"
           
           echo "🔍 DEBUG: Pushing tag v$NEW_VERSION..."
           git push origin "v$NEW_VERSION"

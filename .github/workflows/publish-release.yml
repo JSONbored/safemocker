@@ -13,6 +13,19 @@
 # **Triggers:**
 # - Tag push matching v*.*.* pattern (automatic, triggered by version-bump.yml)
 # - Manual workflow_dispatch (with tag input for re-publishing)
+#
+# **npm Trusted Publishing Requirements:**
+# CRITICAL: This workflow filename (publish-release.yml) MUST exactly match the
+# workflow filename configured in npm trusted publisher settings.
+# 
+# Required npm trusted publisher configuration:
+# - Organization/User: JSONbored
+# - Repository: safemocker (or JSONbored/safemocker)
+# - Workflow filename: publish-release.yml (must match this file name exactly)
+# - Environment: production (must match the environment name below)
+#
+# See: https://docs.npmjs.com/trusted-publishers/
+# Documentation: .cursor/npm-trusted-publishing-setup.md
 name: Publish Release
 
 on:
@@ -32,7 +45,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     
-    # CRITICAL: Must match npm trusted publisher environment configuration
+    # CRITICAL: Environment name must exactly match npm trusted publisher configuration
+    # This workflow filename (publish-release.yml) must also match npm config
+    # Required npm settings:
+    #   - Workflow filename: publish-release.yml
+    #   - Environment: production
+    #   - Repository: JSONbored/safemocker
+    #   - Organization: JSONbored
     environment: production
     
     permissions:
@@ -41,7 +60,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           # Full history needed for changelog extraction
           fetch-depth: 0
@@ -79,19 +98,27 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
           echo "✅ Extracted version: $VERSION from tag: $TAG"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js (with OIDC for trusted publishing)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-          cache: 'pnpm'
-          # OIDC is automatically used when id-token: write permission is set
+          # CRITICAL: setup-node must be configured BEFORE pnpm setup for OIDC to work correctly
+          # OIDC token is automatically used when id-token: write permission is set
           # No NODE_AUTH_TOKEN needed for trusted publishing
+          # Note: cache is configured after pnpm is installed
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
         with:
           version: 10
+
+      - name: Configure Node.js cache
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          # Configure caching after pnpm is available
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -128,13 +155,52 @@ jobs:
           
           echo "🔍 DEBUG: Publishing @jsonbored/safemocker@$VERSION to npm..."
           echo "🔍 DEBUG: Using trusted publishing (OIDC) - no NODE_AUTH_TOKEN needed"
+          echo "🔍 DEBUG: Environment: ${{ github.environment }}"
+          echo "🔍 DEBUG: Repository: ${{ github.repository }}"
           
           # For trusted publishing, npm automatically uses OIDC token from GitHub Actions
           # The --provenance flag creates a signed provenance statement
           # Ensure trusted publishing is configured in npm: https://docs.npmjs.com/trusted-publishers/
-          npm publish --access public --provenance
+          # Trusted publishing requires:
+          # 1. Environment name matches npm trusted publisher config (currently: production)
+          # 2. id-token: write permission (already set in permissions)
+          # 3. registry-url set in setup-node (already configured)
+          
+          if ! npm publish --access public --provenance; then
+            echo "❌ Error: npm publish failed" >&2
+            echo "🔍 DEBUG: Check that trusted publishing is configured in npm for:" >&2
+            echo "  - Organization/User: JSONbored" >&2
+            echo "  - Repository: ${{ github.repository }}" >&2
+            echo "  - Workflow filename: publish-release.yml (must match exactly)" >&2
+            echo "  - Environment: production (must match exactly)" >&2
+            echo "  - See: https://docs.npmjs.com/trusted-publishers/" >&2
+            echo "  - Documentation: .cursor/npm-trusted-publishing-setup.md" >&2
+            exit 1
+          fi
           
           echo "✅ Published @jsonbored/safemocker@$VERSION to npm"
+
+      - name: Verify npm publish
+        run: |
+          set -e  # Exit on error
+          
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          
+          echo "🔍 DEBUG: Verifying package is published on npm..."
+          
+          # Wait a moment for npm registry to update
+          sleep 2
+          
+          # Verify package exists on npm
+          if ! npm view "@jsonbored/safemocker@$VERSION" version > /dev/null 2>&1; then
+            echo "❌ Error: Package not found on npm after publish" >&2
+            echo "🔍 DEBUG: Attempted to verify: @jsonbored/safemocker@$VERSION" >&2
+            echo "🔍 DEBUG: This may indicate the publish failed or npm registry hasn't updated yet" >&2
+            exit 1
+          fi
+          
+          PUBLISHED_VERSION=$(npm view "@jsonbored/safemocker@$VERSION" version)
+          echo "✅ Verified: @jsonbored/safemocker@$PUBLISHED_VERSION is published on npm"
 
       - name: Extract changelog for version
         id: changelog
@@ -196,7 +262,7 @@ jobs:
           head -10 /tmp/release-notes.md || echo "(empty)"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: ${{ steps.version.outputs.TAG }}
