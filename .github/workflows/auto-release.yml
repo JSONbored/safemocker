@@ -15,12 +15,24 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type (major, minor, patch, or "auto" to detect from commits)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - major
+          - minor
+          - patch
 
-# Only run when PR is merged (not just closed)
+# Only run when PR is merged (not just closed) OR when manually triggered
 jobs:
   auto-release:
-    # Skip if PR was closed without merging
-    if: github.event.pull_request.merged == true
+    # Skip if PR was closed without merging (but allow workflow_dispatch)
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
 
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -35,7 +47,8 @@ jobs:
         with:
           # fetch-depth: 0 needed for git log since last tag
           fetch-depth: 0
-          ref: ${{ github.ref }}
+          # Use main branch for workflow_dispatch, otherwise use PR ref
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
@@ -102,20 +115,35 @@ jobs:
         id: version_bump
         if: steps.commits.outputs.SKIP_RELEASE != 'true'
         run: |
-          # Decode commits
-          COMMITS=$(cat ${{ steps.commits.outputs.COMMITS_FILE }} | base64 -d)
+          # Check if manual bump type was provided (workflow_dispatch with non-"auto" value)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.bump_type }}" != "auto" ]; then
+            # Use manual bump type from workflow_dispatch input
+            BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+            echo "Using manual bump type: $BUMP_TYPE"
+          else
+            # Auto-detect bump type from commits
+            COMMITS=$(cat ${{ steps.commits.outputs.COMMITS_FILE }} | base64 -d)
 
-          # Analyze commits using our script (pipe commits to stdin)
-          # Use head -1 to get only first line, then strip whitespace
-          BUMP_TYPE=$(echo "$COMMITS" | pnpm analyze:commits | head -1 | tr -d '[:space:]')
+            # Analyze commits using our script (pipe commits to stdin)
+            # Use head -1 to get only first line, then strip whitespace
+            BUMP_TYPE=$(echo "$COMMITS" | pnpm analyze:commits | head -1 | tr -d '[:space:]')
 
-          if [ -z "$BUMP_TYPE" ]; then
-            echo "❌ Failed to determine version bump type" >&2
+            if [ -z "$BUMP_TYPE" ]; then
+              echo "❌ Failed to determine version bump type" >&2
+              exit 1
+            fi
+
+            echo "Auto-detected bump type: $BUMP_TYPE"
+          fi
+
+          # Validate bump type
+          if [ "$BUMP_TYPE" != "major" ] && [ "$BUMP_TYPE" != "minor" ] && [ "$BUMP_TYPE" != "patch" ]; then
+            echo "❌ Invalid bump type: $BUMP_TYPE (must be major, minor, or patch)" >&2
             exit 1
           fi
 
           echo "BUMP_TYPE=$BUMP_TYPE" >> $GITHUB_OUTPUT
-          echo "Determined bump type: $BUMP_TYPE"
+          echo "Final bump type: $BUMP_TYPE"
 
       - name: Get current version
         id: current_version
