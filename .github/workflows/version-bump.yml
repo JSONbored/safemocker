@@ -4,7 +4,7 @@
 # **What it does:**
 # 1. Analyzes commits since last tag to determine version bump type (using git-cliff)
 # 2. Calculates new version using git-cliff --bumped-version
-# 3. Generates changelog entry using git-cliff --latest --unreleased
+# 3. Generates versioned changelog entry using git-cliff --tag vX.Y.Z --latest --unreleased
 # 4. Updates package.json with new version
 # 5. Commits version + changelog changes
 # 6. Creates and pushes tag (which triggers publish-release.yml workflow)
@@ -222,6 +222,16 @@ jobs:
             exit 1
           fi
 
+          # CRITICAL: Check if new version is the same as current version
+          # This happens when there are no commits that warrant a version bump
+          if [ "$NEW_VERSION" == "$CURRENT_VERSION" ]; then
+            echo "⚠️ New version ($NEW_VERSION) is the same as current version ($CURRENT_VERSION)"
+            echo "This means there are no commits that warrant a version bump."
+            echo "Skipping release."
+            echo "SKIP_RELEASE=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           # Determine the actual bump type by comparing versions
           IFS='.' read -r current_major current_minor current_patch <<< "$CURRENT_VERSION"
           IFS='.' read -r new_major new_minor new_patch <<< "$NEW_VERSION"
@@ -275,8 +285,18 @@ jobs:
               exit 0
             else
               echo "⚠️ Changelog has version $NEW_VERSION but no content, regenerating..."
-              # Remove the empty version section
-              sed -i "/## \[$NEW_VERSION\]/,/^## \[/ { /## \[$NEW_VERSION\]/d; /^## \[/!d; }" CHANGELOG.md || true
+              # Remove the empty version section (from header to next version or end)
+              awk -v version="$NEW_VERSION" '
+                BEGIN { skip=0 }
+                /^## \[/ {
+                  if (index($0, "[" version "]") > 0) {
+                    skip=1
+                    next
+                  }
+                  if (skip) skip=0
+                }
+                !skip { print }
+              ' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
             fi
           fi
           
@@ -287,16 +307,16 @@ jobs:
             git tag -d "v$NEW_VERSION" || true
           fi
           
-          # Use --latest --unreleased to generate for commits since the latest tag
-          # After deleting NEW_VERSION tag (if it existed), --latest will use LAST_TAG
-          # --unreleased processes commits that don't belong to a tag
+          # Use --tag with --latest --unreleased to generate versioned changelog directly
+          # This generates a changelog entry with [NEW_VERSION] instead of [Unreleased]
+          # --prepend is configured in cliff.toml, so it will prepend to CHANGELOG.md
           # --verbose provides debugging information
           # --topo-order ensures tags are sorted topologically (important for complex branching)
-          echo "🔍 DEBUG: Running git-cliff to generate changelog..."
-          echo "🔍 Command: pnpm exec git-cliff --config cliff.toml --latest --unreleased --verbose --topo-order"
+          echo "🔍 DEBUG: Running git-cliff to generate versioned changelog..."
+          echo "🔍 Command: pnpm exec git-cliff --config cliff.toml --tag v$NEW_VERSION --latest --unreleased --verbose --topo-order"
           
-          # Generate changelog (this prepends to CHANGELOG.md)
-          pnpm exec git-cliff --config cliff.toml --latest --unreleased --verbose --topo-order
+          # Generate versioned changelog (this prepends to CHANGELOG.md with [NEW_VERSION] header)
+          pnpm exec git-cliff --config cliff.toml --tag "v$NEW_VERSION" --latest --unreleased --verbose --topo-order
           
           # Verify git-cliff generated content
           if [ ! -f CHANGELOG.md ]; then
@@ -304,44 +324,22 @@ jobs:
             exit 1
           fi
           
-          # Check if changelog was generated with content
-          if [ -f CHANGELOG.md ]; then
-            # Check if [Unreleased] section exists and has content (more than just header)
-            if grep -q "## \[Unreleased\]" CHANGELOG.md; then
-              # Count lines in [Unreleased] section (from header to next ## or end)
-              UNRELEASED_LINES=$(awk '/^## \[Unreleased\]/,/^## \[/ {count++} END {print count}' CHANGELOG.md)
-              echo "🔍 DEBUG: [Unreleased] section has $UNRELEASED_LINES lines"
-              
-              if [ "$UNRELEASED_LINES" -gt 3 ]; then
-                echo "✅ Changelog generated with content ($UNRELEASED_LINES lines)"
-                # Replace [Unreleased] with the new version
-                TODAY=$(date +%Y-%m-%d)
-                sed -i "s/## \[Unreleased\]/## [$NEW_VERSION] - $TODAY/" CHANGELOG.md
-                
-                # Update the unreleased link at the bottom with the new version link
-                REPO_SLUG="${{ github.repository }}"
-                # Replace [unreleased]: link with [NEW_VERSION]: link
-                sed -i "s|\[unreleased\]:|[$NEW_VERSION]:|" CHANGELOG.md || true
-                # Update the compare link to use LAST_TAG..vNEW_VERSION
-                sed -i "s|compare/.*\.\.HEAD|compare/$LAST_TAG..v$NEW_VERSION|" CHANGELOG.md || true
-                sed -i "s|compare/.*\.\.unreleased|compare/$LAST_TAG..v$NEW_VERSION|" CHANGELOG.md || true
-                
-                # Ensure the link is added only if it doesn't exist
-                if ! grep -q "\\[$NEW_VERSION\\]: https://github.com/$REPO_SLUG/compare/$LAST_TAG..v$NEW_VERSION" CHANGELOG.md; then
-                  echo "[$NEW_VERSION]: https://github.com/$REPO_SLUG/compare/$LAST_TAG..v$NEW_VERSION" >> CHANGELOG.md
-                fi
-              else
-                echo "⚠️ Changelog generated but [Unreleased] section is empty or has no content"
-                # Still replace to create the version entry, even if empty
-                TODAY=$(date +%Y-%m-%d)
-                sed -i "s/## \[Unreleased\]/## [$NEW_VERSION] - $TODAY/" CHANGELOG.md || echo "## [$NEW_VERSION] - $TODAY" >> CHANGELOG.md
-              fi
-            else
-              echo "⚠️ [Unreleased] section not found in changelog, creating empty version entry"
-              # Create a new version entry at the top
-              TODAY=$(date +%Y-%m-%d)
-              sed -i "2i## [$NEW_VERSION] - $TODAY" CHANGELOG.md
-            fi
+          # Verify the version entry was created
+          if ! grep -q "## \[$NEW_VERSION\]" CHANGELOG.md; then
+            echo "❌ Changelog was generated but version $NEW_VERSION entry not found"
+            echo "🔍 DEBUG: First 20 lines of CHANGELOG.md:"
+            head -20 CHANGELOG.md
+            exit 1
+          fi
+          
+          # Check if changelog has content (more than just the header)
+          VERSION_LINES=$(awk -v version="$NEW_VERSION" '/^## \[/ { if (index($0, "[" version "]") > 0) { found=1; next } if (found && /^## \[/) exit; if (found) count++ } END { print count+0 }' CHANGELOG.md)
+          echo "🔍 DEBUG: Version $NEW_VERSION section has $VERSION_LINES lines of content"
+          
+          if [ "$VERSION_LINES" -gt 2 ]; then
+            echo "✅ Changelog generated with content for version $NEW_VERSION"
+          else
+            echo "⚠️ Changelog generated but version $NEW_VERSION section appears empty"
           fi
           
           # Verify changelog was updated
@@ -349,7 +347,7 @@ jobs:
             echo "⚠️ Changelog was not updated"
             echo "CHANGELOG_UPDATED=false" >> $GITHUB_OUTPUT
           else
-            echo "✅ Changelog updated"
+            echo "✅ Changelog updated with version $NEW_VERSION"
             echo "CHANGELOG_UPDATED=true" >> $GITHUB_OUTPUT
           fi
 

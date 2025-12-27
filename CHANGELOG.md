@@ -1,12 +1,11 @@
 # Changelog
-## [0.2.0] - 2025-12-27
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - 2025-12-27
+## [Unreleased]
 
 ### Added
 
@@ -22,10 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - update auto-release and release workflows to improve version tagging and push process, ensuring commit verification before tagging
+- migrate version bumping to git-cliff
+- rename workflows and fix commit counting with comprehensive debugging
 
 ### Fixed
 
 - update auto-release workflow to use pnpm for executing git-cliff, ensuring consistent environment for changelog generation
+- remove empty env block from release.yml workflow
 
 ## [0.1.0] - 2025-12-23
 
@@ -55,6 +57,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ Metadata validation middleware
 - ✅ Dual CJS/ESM builds for Jest and Vitest compatibility
 
-[0.1.1]: https://github.com/JSONbored/safemocker/compare/v0.1.0..v0.1.1
+[unreleased]: https://github.com/JSONbored/safemocker/compare/v0.1.0..HEAD
 [0.1.0]: https://github.com/JSONbored/safemocker/releases/tag/v0.1.0
-
