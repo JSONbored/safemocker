@@ -6,6 +6,12 @@ on:
   push:
     tags:
       - 'v*.*.*'  # Triggers on version tags (e.g., v0.1.0, v1.2.3)
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name (e.g., v0.1.1)'
+        required: true
+        type: string
 
 jobs:
   release:
@@ -22,6 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Full history for changelog generation
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -47,7 +54,14 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger: extract from input tag
+            TAG="${{ github.event.inputs.tag }}"
+            VERSION=${TAG#v}  # Remove 'v' prefix
+          else
+            # Tag push: extract from GITHUB_REF
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Tag version: $VERSION"
       
@@ -83,8 +97,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           body_path: ${{ steps.changelog.outputs.notes_path }}
           generate_release_notes: false
           draft: false

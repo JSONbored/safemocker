@@ -252,17 +252,14 @@ jobs:
       - name: Commit version and changelog, then create and push tag
         if: steps.commits.outputs.SKIP_RELEASE != 'true' && steps.changelog.outputs.CHANGELOG_UPDATED == 'true'
         run: |
-          # Batch git operations for efficiency
+          # Stage and commit version changes
           git add package.json CHANGELOG.md
           git commit -m "chore: bump version to ${{ steps.new_version.outputs.NEW_VERSION }}"
 
-          # Create tag before pushing
-          git tag -a "v${{ steps.new_version.outputs.NEW_VERSION }}" -m "Release v${{ steps.new_version.outputs.NEW_VERSION }}"
+          # Push commit first (ensures commit is on remote before tag)
+          git push --force-with-lease origin main
 
-          # Push commit and tag together (more efficient)
-          git push --force-with-lease origin main "v${{ steps.new_version.outputs.NEW_VERSION }}"
-
-          # Verify push succeeded by comparing local HEAD to origin/main
+          # Verify commit push succeeded
           git fetch origin main --depth=1
           LOCAL_HEAD=$(git rev-parse HEAD)
           REMOTE_HEAD=$(git rev-parse origin/main)
@@ -270,7 +267,13 @@ jobs:
             echo "❌ Git push failed: local HEAD ($LOCAL_HEAD) does not match origin/main ($REMOTE_HEAD)" >&2
             exit 1
           fi
-          echo "✅ Git push verified: local and remote are in sync"
+          echo "✅ Commit push verified: local and remote are in sync"
+
+          # Create and push tag separately (ensures tag push event triggers release.yml workflow)
+          git tag -a "v${{ steps.new_version.outputs.NEW_VERSION }}" -m "Release v${{ steps.new_version.outputs.NEW_VERSION }}"
+          git push origin "v${{ steps.new_version.outputs.NEW_VERSION }}"
+          
+          echo "✅ Tag v${{ steps.new_version.outputs.NEW_VERSION }} pushed successfully"
 
       - name: Summary
         if: always()
