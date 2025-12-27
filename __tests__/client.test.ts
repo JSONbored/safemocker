@@ -288,6 +288,50 @@ describe('client', () => {
   });
 
   describe('outputSchema', () => {
+    it('should return MetadataBuilder instance for chaining', () => {
+      const client = createMockSafeActionClient();
+      const inputSchema = z.object({ value: z.number() });
+      const outputSchema = z.object({
+        success: z.boolean(),
+        data: z.object({ value: z.number() }),
+      });
+
+      // Test that outputSchema returns the builder for chaining
+      // Explicitly capture the return value to ensure line 146 is tracked
+      const builder1 = client.inputSchema(inputSchema);
+      const builder2 = builder1.outputSchema(outputSchema);
+      
+      // Verify the return value is the same instance (ensures return this is tracked)
+      expect(builder2).toBe(builder1);
+      expect(builder2).toBeDefined();
+      expect(typeof builder2.metadata).toBe('function');
+      expect(typeof builder2.action).toBe('function');
+      
+      // Also test chaining directly to ensure coverage
+      const chained = client.inputSchema(inputSchema).outputSchema(outputSchema);
+      expect(chained).toBeDefined();
+    });
+    
+    it('should return builder instance when outputSchema is called (explicit return coverage)', () => {
+      const client = createMockSafeActionClient();
+      const inputSchema = z.object({ id: z.string() });
+      const outputSchema = z.object({ result: z.string() });
+      
+      // Create builder and call outputSchema, explicitly capturing return
+      const builder = client.inputSchema(inputSchema);
+      
+      // Call outputSchema and verify it returns the builder (line 146)
+      const returnedBuilder = builder.outputSchema(outputSchema);
+      
+      // Force coverage of return statement by using the returned value
+      expect(returnedBuilder).toBe(builder);
+      expect(returnedBuilder).toHaveProperty('_outputSchema', outputSchema);
+      
+      // Call it again to ensure coverage
+      const returnedBuilder2 = returnedBuilder.outputSchema(outputSchema);
+      expect(returnedBuilder2).toBe(returnedBuilder);
+    });
+
     it('should validate output against schema and return data on success', async () => {
       const client = createMockSafeActionClient();
       const inputSchema = z.object({ value: z.number() });
@@ -342,6 +386,100 @@ describe('client', () => {
       expect(result.validationErrors).toBeDefined();
       expect(result.validationErrors?.data).toBeDefined();
       expect(Array.isArray(result.validationErrors?.data)).toBe(true);
+    });
+
+    it('should return validationErrors immediately when output validation fails (explicit return path)', async () => {
+      const client = createMockSafeActionClient();
+      const inputSchema = z.object({ id: z.string() });
+      const outputSchema = z.object({
+        id: z.string(),
+        name: z.string().min(1),
+      });
+
+      const action = client
+        .inputSchema(inputSchema)
+        .outputSchema(outputSchema)
+        .action(async ({ parsedInput }) => {
+          // Return output that fails validation (name is empty string)
+          return {
+            id: parsedInput.id,
+            name: '', // Fails min(1) validation
+          };
+        });
+
+      const result = await action({ id: 'test-id' });
+
+      // Verify the return path on line 205-206 is hit
+      // This should trigger the return statement on line 205
+      expect(result.data).toBeUndefined();
+      expect(result.serverError).toBeUndefined();
+      expect(result.validationErrors).toBeDefined();
+      expect(result.validationErrors?.name).toBeDefined();
+      expect(Array.isArray(result.validationErrors?.name)).toBe(true);
+      
+      // Verify it's the exact result from validateOutput (ensures line 205 return is tracked)
+      expect(result).toHaveProperty('validationErrors');
+      expect(result.data).toBeUndefined();
+      expect(result.serverError).toBeUndefined();
+    });
+    
+    it('should return validationErrors when output type is wrong (explicit return path coverage)', async () => {
+      const client = createMockSafeActionClient();
+      const inputSchema = z.object({ id: z.string() });
+      const outputSchema = z.object({
+        id: z.string(),
+        count: z.number().positive(),
+      });
+
+      const action = client
+        .inputSchema(inputSchema)
+        .outputSchema(outputSchema)
+        .action(async ({ parsedInput }) => {
+          // Return output with wrong type (count is string instead of number)
+          return {
+            id: parsedInput.id,
+            count: 'not-a-number' as any, // Wrong type - triggers line 205 return
+          };
+        });
+
+      const result = await action({ id: 'test-id' });
+
+      // This should trigger the return statement on line 205
+      expect(result.data).toBeUndefined();
+      expect(result.serverError).toBeUndefined();
+      expect(result.validationErrors).toBeDefined();
+      expect(result.validationErrors?.count).toBeDefined();
+      expect(Array.isArray(result.validationErrors?.count)).toBe(true);
+    });
+    
+    it('should return validationErrors when output is missing required fields (explicit return path coverage)', async () => {
+      const client = createMockSafeActionClient();
+      const inputSchema = z.object({ id: z.string() });
+      const outputSchema = z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string().email(),
+      });
+
+      const action = client
+        .inputSchema(inputSchema)
+        .outputSchema(outputSchema)
+        .action(async ({ parsedInput }) => {
+          // Return output missing required fields - triggers line 205 return
+          return {
+            id: parsedInput.id,
+            // Missing 'name' and 'email' fields
+          };
+        });
+
+      const result = await action({ id: 'test-id' });
+
+      // This should trigger the return statement on line 205
+      expect(result.data).toBeUndefined();
+      expect(result.serverError).toBeUndefined();
+      expect(result.validationErrors).toBeDefined();
+      expect(result.validationErrors?.name).toBeDefined();
+      expect(result.validationErrors?.email).toBeDefined();
     });
 
     it('should support outputSchema with metadata', async () => {

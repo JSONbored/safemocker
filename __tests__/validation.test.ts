@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { z } from 'zod';
-import { validateInput } from '../src/validation';
+import { validateInput, validateOutput } from '../src/validation';
 import type { SafeActionResult } from '../src/types';
 
 describe('validation', () => {
@@ -133,6 +133,54 @@ describe('validation', () => {
 
       expect(() => {
         validateInput('test', throwingSchema);
+      }).toThrow('Non-Zod error');
+    });
+  });
+
+  describe('validateOutput', () => {
+    it('should validate valid output against schema', () => {
+      const schema = z.object({
+        id: z.string(),
+        name: z.string(),
+      });
+
+      const output = { id: '123', name: 'Test' };
+      const result = validateOutput(output, schema);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual({ id: '123', name: 'Test' });
+      }
+    });
+
+    it('should return validation errors for invalid output', () => {
+      const schema = z.object({
+        id: z.string(),
+        count: z.number().positive(),
+      });
+
+      const output = { id: '123', count: -1 };
+      const result = validateOutput(output, schema);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.result.validationErrors).toBeDefined();
+        expect(result.result.validationErrors?.count).toBeDefined();
+        expect(result.result.data).toBeUndefined();
+        expect(result.result.serverError).toBeUndefined();
+        expect(result.result.fieldErrors).toBeUndefined();
+      }
+    });
+
+    it('should throw non-Zod errors', () => {
+      const throwingSchema = {
+        parse: () => {
+          throw new Error('Non-Zod error');
+        },
+      } as unknown as z.ZodType;
+
+      expect(() => {
+        validateOutput({ test: 'value' }, throwingSchema);
       }).toThrow('Non-Zod error');
     });
   });

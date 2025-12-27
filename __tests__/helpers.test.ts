@@ -37,6 +37,33 @@ describe('helpers', () => {
         userEmail: 'custom@example.com',
       });
     });
+
+    it('should use default values when config values are undefined', async () => {
+      const client = createAuthedActionClient({
+        // No auth config provided - should use defaults
+      });
+
+      const schema = z.object({ id: z.string() });
+      const action = client
+        .inputSchema(schema)
+        .action(async ({ parsedInput, ctx }) => {
+          return {
+            id: parsedInput.id,
+            userId: ctx.userId,
+            userEmail: ctx.userEmail,
+            authToken: ctx.authToken,
+          };
+        });
+
+      const result = await action({ id: 'test-id' });
+
+      expect(result.data).toEqual({
+        id: 'test-id',
+        userId: 'test-user-id', // Default value
+        userEmail: 'test@example.com', // Default value
+        authToken: 'test-token', // Default value
+      });
+    });
   });
 
   describe('createOptionalAuthActionClient', () => {
@@ -67,6 +94,36 @@ describe('helpers', () => {
           email: 'test@example.com',
         },
         userId: 'custom-user-id',
+      });
+    });
+
+    it('should use default values when config values are undefined', async () => {
+      const client = createOptionalAuthActionClient({
+        // No auth config provided - should use defaults
+      });
+
+      const schema = z.object({ id: z.string() });
+      const action = client
+        .inputSchema(schema)
+        .action(async ({ parsedInput, ctx }) => {
+          return {
+            id: parsedInput.id,
+            user: ctx.user,
+            userId: ctx.userId,
+            userEmail: ctx.userEmail,
+          };
+        });
+
+      const result = await action({ id: 'test-id' });
+
+      expect(result.data).toEqual({
+        id: 'test-id',
+        user: {
+          id: 'test-user-id', // Default value
+          email: 'test@example.com', // Default value
+        },
+        userId: 'test-user-id', // Default value
+        userEmail: 'test@example.com', // Default value
       });
     });
   });

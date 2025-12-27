@@ -135,6 +135,35 @@ describe('middleware', () => {
       expect(receivedCtx.userEmail).toBe('user@example.com');
       expect(receivedCtx.authToken).toBe('token-123');
     });
+
+    it('should not inject user context when auth is disabled', async () => {
+      const config: Required<MockSafeActionClientConfig> = {
+        defaultServerError: 'Error',
+        isProduction: false,
+        auth: {
+          enabled: false,
+          testUserId: 'user-123',
+          testUserEmail: 'user@example.com',
+          testAuthToken: 'token-123',
+        },
+      };
+
+      const middleware = createOptionalAuthMiddleware(config);
+      let receivedCtx: any;
+
+      await middleware({
+        next: async (nextOpts) => {
+          // next-safe-action v8 API: next() accepts { ctx: ... }
+          receivedCtx = nextOpts?.ctx || {};
+          return { success: true };
+        },
+        ctx: { existing: 'value' },
+      });
+
+      expect(receivedCtx).toEqual({ existing: 'value' });
+      expect(receivedCtx.user).toBeUndefined();
+      expect(receivedCtx.userId).toBeUndefined();
+    });
   });
 
   describe('createMetadataValidationMiddleware', () => {
@@ -171,6 +200,23 @@ describe('middleware', () => {
           metadata: { invalid: 'data' },
         })
       ).rejects.toThrow('Invalid action metadata');
+    });
+
+    it('should re-throw non-Zod errors', async () => {
+      const throwingSchema = {
+        parse: () => {
+          throw new Error('Non-Zod error');
+        },
+      } as unknown as z.ZodType;
+
+      const middleware = createMetadataValidationMiddleware(throwingSchema);
+
+      await expect(
+        middleware({
+          next: async () => ({ success: true }),
+          metadata: { actionName: 'test' },
+        })
+      ).rejects.toThrow('Non-Zod error');
     });
   });
 
@@ -221,6 +267,23 @@ describe('middleware', () => {
           metadata: { invalid: 'data' },
         })
       ).rejects.toThrow('Invalid action configuration');
+    });
+
+    it('should re-throw non-Zod errors', async () => {
+      const throwingSchema = {
+        parse: () => {
+          throw new Error('Non-Zod error');
+        },
+      } as unknown as z.ZodType;
+
+      const middleware = createRateLimitMiddleware(throwingSchema);
+
+      await expect(
+        middleware({
+          next: async () => ({ success: true }),
+          metadata: { actionName: 'test' },
+        })
+      ).rejects.toThrow('Non-Zod error');
     });
   });
 });
