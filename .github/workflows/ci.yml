@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   test:
-    name: Test
+    name: Jest Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
     
