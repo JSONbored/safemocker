@@ -74,19 +74,19 @@ jobs:
         id: last_tag
         run: |
           set -e  # Exit on error
-          
+
           echo "🔍 DEBUG: Fetching all tags..."
           # CRITICAL: Fetch ALL tags (not just depth=1) to ensure we find the correct base tag
           git fetch --tags --force || true
-          
+
           echo "🔍 DEBUG: Listing all tags..."
           git tag -l "v*" | sort -V
-          
+
           echo "🔍 DEBUG: Getting most recent version tag..."
           # Get the most recent tag matching v*.*.* pattern
           # Use --abbrev=0 to get full tag name, not abbreviated
           LAST_TAG=$(git describe --tags --match 'v*.*.*' --abbrev=0 2>/dev/null || echo "")
-          
+
           if [ -z "$LAST_TAG" ]; then
             echo "⚠️ No previous tag found, starting from v0.0.0"
             echo "TAG=v0.0.0" >> $GITHUB_OUTPUT
@@ -95,7 +95,7 @@ jobs:
             echo "✅ Last tag found: $LAST_TAG"
             echo "TAG=$LAST_TAG" >> $GITHUB_OUTPUT
             echo "HAS_PREVIOUS=true" >> $GITHUB_OUTPUT
-            
+
             # Debug: Show commit hash of last tag
             TAG_HASH=$(git rev-parse "$LAST_TAG" 2>/dev/null || echo "unknown")
             echo "🔍 DEBUG: Last tag $LAST_TAG points to commit: $TAG_HASH"
@@ -105,23 +105,23 @@ jobs:
         id: commits
         run: |
           set -e  # Exit on error
-          
+
           LAST_TAG="${{ steps.last_tag.outputs.TAG }}"
           HAS_PREVIOUS="${{ steps.last_tag.outputs.HAS_PREVIOUS }}"
-          
+
           echo "🔍 DEBUG: Last tag: $LAST_TAG"
           echo "🔍 DEBUG: Has previous tag: $HAS_PREVIOUS"
           echo "🔍 DEBUG: Current HEAD: $(git rev-parse HEAD)"
           echo "🔍 DEBUG: Current branch: $(git branch --show-current || echo 'detached')"
-          
+
           if [ "$HAS_PREVIOUS" == "true" ]; then
             echo "🔍 DEBUG: Getting commits since $LAST_TAG..."
             # Get commits since last tag (excluding merge commits)
             COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"%h %s" --no-merges)
-            
+
             # Also get commit count for verification
             COMMIT_COUNT=$(git rev-list --count "$LAST_TAG"..HEAD --no-merges 2>/dev/null || echo "0")
-            
+
             echo "🔍 DEBUG: Found $COMMIT_COUNT commits since $LAST_TAG:"
             echo "$COMMITS" | head -10
             if [ "$COMMIT_COUNT" -gt 10 ]; then
@@ -132,30 +132,30 @@ jobs:
             # Get all commits (no previous tag)
             COMMITS=$(git log --pretty=format:"%h %s" --no-merges)
             COMMIT_COUNT=$(git rev-list --count HEAD --no-merges 2>/dev/null || echo "0")
-            
+
             echo "🔍 DEBUG: Found $COMMIT_COUNT total commits:"
             echo "$COMMITS" | head -10
             if [ "$COMMIT_COUNT" -gt 10 ]; then
               echo "... and $((COMMIT_COUNT - 10)) more commits"
             fi
           fi
-          
+
           # Extract just commit messages for processing (remove commit hash)
           COMMIT_MESSAGES=$(echo "$COMMITS" | sed 's/^[a-f0-9]* //')
-          
+
           # Count commits (handle empty case)
           if [ -z "$COMMIT_MESSAGES" ]; then
             COMMIT_COUNT=0
           else
             COMMIT_COUNT=$(echo "$COMMIT_MESSAGES" | grep -c . || echo "0")
           fi
-          
+
           echo "COMMIT_COUNT=$COMMIT_COUNT" >> $GITHUB_OUTPUT
-          
+
           # Store commit messages (base64 encoded to handle special chars)
           echo "$COMMIT_MESSAGES" | base64 -w 0 > /tmp/commits.txt || echo "" | base64 -w 0 > /tmp/commits.txt
           echo "COMMITS_FILE=/tmp/commits.txt" >> $GITHUB_OUTPUT
-          
+
           # Log summary
           echo "📊 Summary: Found $COMMIT_COUNT commits since last tag ($LAST_TAG)"
           if [ "$COMMIT_COUNT" -eq 0 ]; then
@@ -174,9 +174,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e  # Exit on error
-          
+
           echo "🔍 DEBUG: Determining version bump type..."
-          
+
           # Check if manual bump type was provided (workflow_dispatch with non-"auto" value)
           if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.bump_type }}" != "auto" ]; then
             # Use manual bump type from workflow_dispatch input
@@ -206,7 +206,7 @@ jobs:
             echo "🔍 Running: pnpm exec git-cliff --config cliff.toml --bump $BUMP_TYPE --bumped-version"
             NEW_VERSION_TAG=$(pnpm exec git-cliff --config cliff.toml --bump "$BUMP_TYPE" --bumped-version 2>&1 | tail -1)
           fi
-          
+
           echo "🔍 DEBUG: git-cliff returned: '$NEW_VERSION_TAG'"
 
           # Remove 'v' prefix from version tag (e.g., "v0.1.1" -> "0.1.1")
@@ -237,7 +237,7 @@ jobs:
           # Determine the actual bump type by comparing versions
           IFS='.' read -r current_major current_minor current_patch <<< "$CURRENT_VERSION"
           IFS='.' read -r new_major new_minor new_patch <<< "$NEW_VERSION"
-          
+
           if [ "$new_major" -gt "$current_major" ]; then
             DETECTED_BUMP_TYPE="major"
           elif [ "$new_minor" -gt "$current_minor" ]; then
@@ -270,13 +270,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e  # Exit on error
-          
+
           NEW_VERSION="${{ steps.version_calc.outputs.NEW_VERSION }}"
           LAST_TAG="${{ steps.last_tag.outputs.TAG }}"
-          
+
           echo "🔍 DEBUG: Generating changelog for version $NEW_VERSION"
           echo "🔍 DEBUG: Base tag: $LAST_TAG"
-          
+
           # Verify GITHUB_TOKEN is set for GitHub API access
           if [ -z "$GITHUB_TOKEN" ]; then
             echo "⚠️ Warning: GITHUB_TOKEN is not set. GitHub integration features (PR links, usernames, contributors) will not be available."
@@ -289,7 +289,7 @@ jobs:
             echo "  - PR titles and labels"
             echo "  - First-time contributor detection"
           fi
-          
+
           # Check if changelog already has this version (from previous failed run)
           # Use -F for fixed string matching (brackets are literal, not regex)
           if grep -Fq "## [$NEW_VERSION]" CHANGELOG.md 2>/dev/null; then
@@ -316,14 +316,14 @@ jobs:
               ' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
             fi
           fi
-          
+
           # CRITICAL: Delete the new tag locally if it exists (from a previous failed run)
           # This ensures --latest uses LAST_TAG (not NEW_VERSION) as the starting point
           if git rev-parse "v$NEW_VERSION" >/dev/null 2>&1; then
             echo "⚠️ Tag v$NEW_VERSION already exists locally, deleting for changelog generation"
             git tag -d "v$NEW_VERSION" || true
           fi
-          
+
           # Use --tag with --latest --unreleased to generate versioned changelog directly
           # This generates a changelog entry with [NEW_VERSION] instead of [Unreleased]
           # --output CHANGELOG.md explicitly writes to the file (required when using --tag)
@@ -332,13 +332,13 @@ jobs:
           # --topo-order ensures tags are sorted topologically (important for complex branching)
           echo "🔍 DEBUG: Running git-cliff to generate versioned changelog..."
           echo "🔍 Command: pnpm exec git-cliff --config cliff.toml --tag v$NEW_VERSION --latest --unreleased --output CHANGELOG.md --verbose --topo-order"
-          
+
           # Generate versioned changelog (this prepends to CHANGELOG.md with [NEW_VERSION] header)
           # CRITICAL: --output is required to write to file when using --tag
           # GITHUB_TOKEN enables GitHub API access for PR links, usernames, and contributor data
           echo "🔍 DEBUG: Executing git-cliff with GitHub integration..."
           pnpm exec git-cliff --config cliff.toml --tag "v$NEW_VERSION" --latest --unreleased --output CHANGELOG.md --verbose --topo-order
-          
+
           # Verify GitHub integration worked (check for PR links or usernames in changelog)
           if [ -n "$GITHUB_TOKEN" ]; then
             if grep -qE "\[#[0-9]+\]|@[a-zA-Z0-9-]+" CHANGELOG.md 2>/dev/null; then
@@ -348,13 +348,13 @@ jobs:
               echo "🔍 DEBUG: This may be normal if commits don't have associated PRs"
             fi
           fi
-          
+
           # Verify git-cliff generated content
           if [ ! -f CHANGELOG.md ]; then
             echo "❌ git-cliff did not generate CHANGELOG.md"
             exit 1
           fi
-          
+
           # Verify the version entry was created
           # Use -F for fixed string matching (brackets are literal, not regex)
           if ! grep -Fq "## [$NEW_VERSION]" CHANGELOG.md; then
@@ -363,7 +363,7 @@ jobs:
             head -20 CHANGELOG.md >&2
             exit 1
           fi
-          
+
           # Validate changelog has content (not just header)
           if ! grep -FA 5 "## [$NEW_VERSION]" CHANGELOG.md | grep -q "^###"; then
             echo "⚠️ Warning: Changelog section for version $NEW_VERSION appears empty (no subsections found)"
@@ -371,11 +371,11 @@ jobs:
           else
             echo "✅ Changelog generated with content for version $NEW_VERSION"
           fi
-          
+
           # Check if changelog has content (more than just the header)
           VERSION_LINES=$(awk -v version="$NEW_VERSION" '/^## \[/ { if (index($0, "[" version "]") > 0) { found=1; next } if (found && /^## \[/) exit; if (found) count++ } END { print count+0 }' CHANGELOG.md)
           echo "🔍 DEBUG: Version $NEW_VERSION section has $VERSION_LINES lines of content"
-          
+
           # Verify changelog was updated
           if git diff --quiet CHANGELOG.md; then
             echo "⚠️ Changelog was not updated"
@@ -390,12 +390,12 @@ jobs:
         if: steps.commits.outputs.SKIP_RELEASE != 'true' && steps.changelog.outputs.CHANGELOG_UPDATED == 'true'
         run: |
           set -e  # Exit on error
-          
+
           # Update package.json with the version calculated by git-cliff
           NEW_VERSION="${{ steps.version_calc.outputs.NEW_VERSION }}"
-          
+
           echo "🔍 DEBUG: Updating package.json version to $NEW_VERSION"
-          
+
           # Use node to update package.json (preserves formatting)
           node -e "
             const fs = require('fs');
@@ -410,7 +410,7 @@ jobs:
             echo "❌ Error: Failed to update package.json version. Expected $NEW_VERSION but got $ACTUAL_VERSION" >&2
             exit 1
           fi
-          
+
           # Validate version matches semver pattern
           if ! echo "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "❌ Error: version '$NEW_VERSION' doesn't match semver pattern" >&2
@@ -430,11 +430,11 @@ jobs:
         if: steps.commits.outputs.SKIP_RELEASE != 'true' && steps.changelog.outputs.CHANGELOG_UPDATED == 'true'
         run: |
           set -e  # Exit on error
-          
+
           NEW_VERSION="${{ steps.new_version.outputs.NEW_VERSION }}"
-          
+
           echo "🔍 DEBUG: Committing version and changelog changes..."
-          
+
           # Stage and commit version changes
           git add package.json CHANGELOG.md
           git commit -m "chore: bump version to $NEW_VERSION"
@@ -463,7 +463,7 @@ jobs:
           echo "🔍 DEBUG: Creating tag v$NEW_VERSION..."
           # Extract changelog summary for tag message (first 3 commit messages or first 200 chars)
           CHANGELOG_SUMMARY=$(grep -A 50 "## \[$NEW_VERSION\]" CHANGELOG.md 2>/dev/null | grep "^- " | head -3 | sed 's/^- //' | tr '\n' '; ' | cut -c1-200 || echo "")
-          
+
           # Build tag message with version and summary
           # Use a temporary file to handle multi-line tag messages safely
           TAG_MSG_FILE=$(mktemp)
@@ -472,14 +472,14 @@ jobs:
             echo "" >> "$TAG_MSG_FILE"
             echo "$CHANGELOG_SUMMARY" >> "$TAG_MSG_FILE"
           fi
-          
+
           # Create and push tag separately (ensures tag push event triggers publish-release.yml workflow)
           git tag -a "v$NEW_VERSION" -F "$TAG_MSG_FILE"
           rm -f "$TAG_MSG_FILE"
-          
+
           echo "🔍 DEBUG: Pushing tag v$NEW_VERSION..."
           git push origin "v$NEW_VERSION"
-          
+
           echo "✅ Tag v$NEW_VERSION pushed successfully"
 
       - name: Summary
