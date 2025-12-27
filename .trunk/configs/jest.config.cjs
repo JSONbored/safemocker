@@ -38,6 +38,9 @@ module.exports = {
     ],
   },
   moduleFileExtensions: ['ts', 'js', 'json'],
+  // Use v8 coverage provider instead of babel-plugin-istanbul to avoid instrumentation conflicts
+  // v8 is faster and works better with ts-jest
+  coverageProvider: 'v8',
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.test.ts',

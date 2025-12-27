@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { createMockSafeActionClient as createBaseClient, MockSafeActionClient } from './client';
+import { createMockSafeActionClient as createBaseClient, MockSafeActionClient, createMockSafeActionClient } from './client';
 import {
   createAuthedMiddleware,
   createOptionalAuthMiddleware,
@@ -22,8 +22,9 @@ import type { MockSafeActionClientConfig } from './types';
  */
 /**
  * Re-export base factory function
+ * Using direct re-export instead of re-export from syntax to avoid Jest coverage instrumentation issues
  */
-export { createMockSafeActionClient } from './client';
+export { createMockSafeActionClient };
 
 export function createAuthedActionClient(
   config?: MockSafeActionClientConfig
