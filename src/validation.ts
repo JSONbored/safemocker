@@ -52,7 +52,7 @@ export function validateOutput<T extends z.ZodType>(
       return {
         success: false,
         result: {
-          data: undefined,
+          data: undefined as never,
           serverError: undefined,
           fieldErrors: undefined,
           validationErrors: fieldErrors,

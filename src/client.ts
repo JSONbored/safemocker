@@ -62,8 +62,8 @@ class SchemaBuilder<T extends z.ZodType> {
       try {
         // Step 1: Validate input schema
         const validationResult = validateInput(input, this.schema);
-        if (!validationResult.success) {
-          return validationResult.result;
+        if (validationResult.success === false) {
+          return validationResult.result as SafeActionResult<TOutput>;
         }
 
         // Step 2: Execute middleware chain
@@ -101,7 +101,7 @@ class SchemaBuilder<T extends z.ZodType> {
         // Step 3: Validate output schema if provided
         if (this._outputSchema) {
           const outputValidationResult = validateOutput(handlerResult, this._outputSchema);
-          if (!outputValidationResult.success) {
+          if (outputValidationResult.success === false) {
             return outputValidationResult.result as SafeActionResult<TOutput>;
           }
           // Use validated output
@@ -162,8 +162,8 @@ class MetadataBuilder<T extends z.ZodType> {
       try {
         // Step 1: Validate input schema
         const validationResult = validateInput(input, this.schema);
-        if (!validationResult.success) {
-          return validationResult.result;
+        if (validationResult.success === false) {
+          return validationResult.result as SafeActionResult<TOutput>;
         }
 
         // Step 2: Execute middleware chain
@@ -201,7 +201,7 @@ class MetadataBuilder<T extends z.ZodType> {
         // Step 3: Validate output schema if provided
         if (this._outputSchema) {
           const outputValidationResult = validateOutput(handlerResult, this._outputSchema);
-          if (!outputValidationResult.success) {
+          if (outputValidationResult.success === false) {
             return outputValidationResult.result as SafeActionResult<TOutput>;
           }
           // Use validated output

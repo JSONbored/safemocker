@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig([
   // CJS build - MUST output CommonJS syntax (module.exports, require)
   {
-    entry: ['src/index.ts', 'src/jest-adapter.ts', 'src/vitest-adapter.ts'],
+    entry: ['src/index.ts', 'src/jest-adapter.ts', 'src/vitest-adapter.ts', 'src/jest-mock.ts', 'src/vitest-mock.ts'],
     format: 'cjs',
     dts: false,
     splitting: false,

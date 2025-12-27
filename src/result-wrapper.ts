@@ -22,7 +22,7 @@ export function wrapError(error: unknown, defaultMessage: string): SafeActionRes
   // For non-Error types, always use default message
   const message = error instanceof Error && error.message ? error.message : defaultMessage;
   return {
-    data: undefined,
+    data: undefined as never,
     serverError: message,
     fieldErrors: undefined,
     validationErrors: undefined,
@@ -37,7 +37,7 @@ export function wrapValidationErrors(
   fieldErrors: Record<string, string[]>
 ): SafeActionResult<never> {
   return {
-    data: undefined,
+    data: undefined as never,
     serverError: undefined,
     fieldErrors,
     validationErrors: undefined,

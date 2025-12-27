@@ -35,10 +35,20 @@
       "import": "./dist/jest-adapter.mjs",
       "require": "./dist/jest-adapter.cjs"
     },
+    "./jest/mock": {
+      "types": "./dist/jest-mock.d.ts",
+      "import": "./dist/jest-mock.mjs",
+      "require": "./dist/jest-mock.cjs"
+    },
     "./vitest": {
       "types": "./dist/vitest-adapter.d.ts",
       "import": "./dist/vitest-adapter.mjs",
       "require": "./dist/vitest-adapter.cjs"
+    },
+    "./vitest/mock": {
+      "types": "./dist/vitest-mock.d.ts",
+      "import": "./dist/vitest-mock.mjs",
+      "require": "./dist/vitest-mock.cjs"
     }
   },
   "files": [
