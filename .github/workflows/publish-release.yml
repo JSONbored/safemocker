@@ -61,47 +61,23 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          set -e  # Exit on error
-          
-          echo "🔍 DEBUG: Extracting version from tag..."
+          set -e
           
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            # Manual trigger: extract from input tag
             TAG="${{ github.event.inputs.tag }}"
-            echo "🔍 DEBUG: Manual trigger with tag: $TAG"
           else
-            # Tag push: extract from GITHUB_REF (e.g., refs/tags/v0.1.1)
             TAG="${GITHUB_REF#refs/tags/}"
-            echo "🔍 DEBUG: Tag push detected: $TAG"
           fi
           
-          # Remove 'v' prefix from tag (e.g., "v0.1.1" → "0.1.1")
           VERSION="${TAG#v}"
           
-          # Validate version matches semver pattern
           if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "❌ Error: Invalid version format '$VERSION' (from tag '$TAG')" >&2
-            echo "Expected format: v0.1.1 or 0.1.1" >&2
             exit 1
           fi
           
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
-          echo "✅ Extracted version: $VERSION from tag: $TAG"
-
-      - name: Check environment before setup
-        run: |
-          echo "🔍 DEBUG: Environment check BEFORE setup-node..."
-          echo "NODE_AUTH_TOKEN is set: $([ -n "${NODE_AUTH_TOKEN:-}" ] && echo 'YES' || echo 'NO')"
-          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "⚠️ WARNING: NODE_AUTH_TOKEN already set before setup-node (length: ${#NODE_AUTH_TOKEN} chars)"
-          fi
-          echo "NPM_TOKEN secret exists: $([ -n "${{ secrets.NPM_TOKEN }}" ] && echo 'YES' || echo 'NO')"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL: ${ACTIONS_ID_TOKEN_REQUEST_URL:-not set}"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+set (hidden)}"
-          if [ -n "$NPM_CONFIG_USERCONFIG" ]; then
-            echo "NPM_CONFIG_USERCONFIG: $NPM_CONFIG_USERCONFIG"
-          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
@@ -114,43 +90,6 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
-          # CRITICAL: Do NOT provide NODE_AUTH_TOKEN input - we want OIDC trusted publishing
-          # According to official npm docs, setup-node with registry-url + id-token: write
-          # should automatically use OIDC without needing NODE_AUTH_TOKEN
-          # If NODE_AUTH_TOKEN is set, it will be logged and cleaned up before publish
-
-      - name: Check environment after setup-node
-        run: |
-          echo "🔍 DEBUG: Environment check after setup-node..."
-          echo "NODE_AUTH_TOKEN is set: $([ -n "$NODE_AUTH_TOKEN" ] && echo 'YES' || echo 'NO')"
-          if [ -n "$NODE_AUTH_TOKEN" ]; then
-            echo "⚠️ WARNING: NODE_AUTH_TOKEN is set (length: ${#NODE_AUTH_TOKEN} chars)"
-            echo "First 10 chars: ${NODE_AUTH_TOKEN:0:10}..."
-          fi
-          echo "NPM_TOKEN secret exists: $([ -n "${{ secrets.NPM_TOKEN }}" ] && echo 'YES' || echo 'NO')"
-          echo "NPM_CONFIG_USERCONFIG: ${NPM_CONFIG_USERCONFIG:-not set}"
-          if [ -n "$NPM_CONFIG_USERCONFIG" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
-            echo "🔍 DEBUG: $NPM_CONFIG_USERCONFIG exists, checking for auth token..."
-            echo "Full contents:"
-            cat "$NPM_CONFIG_USERCONFIG"
-            if grep -qE "(_authToken|authToken|\$\{NODE_AUTH_TOKEN\})" "$NPM_CONFIG_USERCONFIG"; then
-              echo "⚠️ WARNING: $NPM_CONFIG_USERCONFIG contains auth token references"
-            else
-              echo "✅ $NPM_CONFIG_USERCONFIG does not contain auth tokens"
-            fi
-          fi
-          if [ -f ~/.npmrc ]; then
-            echo "🔍 DEBUG: ~/.npmrc exists, checking for auth token..."
-            if grep -qE "(_authToken|authToken)" ~/.npmrc; then
-              echo "⚠️ WARNING: ~/.npmrc contains auth token references"
-              echo "Contents:"
-              cat ~/.npmrc
-            else
-              echo "✅ ~/.npmrc does not contain auth tokens"
-            fi
-          else
-            echo "✅ ~/.npmrc does not exist"
-          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -163,241 +102,99 @@ jobs:
 
       - name: Verify package.json version matches tag
         run: |
-          set -e  # Exit on error
+          set -e
           
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION="${{ steps.version.outputs.VERSION }}"
           
-          echo "🔍 DEBUG: package.json version: $PACKAGE_VERSION"
-          echo "🔍 DEBUG: Tag version: $TAG_VERSION"
-          
           if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
             echo "❌ Error: package.json version ($PACKAGE_VERSION) does not match tag version ($TAG_VERSION)." >&2
-            echo "This usually means the version-bump workflow didn't complete successfully." >&2
             exit 1
           fi
-          
-          echo "✅ package.json version matches tag version."
 
       - name: Publish to npm
         run: |
-          set -e  # Exit on error
+          set -e
           
           VERSION="${{ steps.version.outputs.VERSION }}"
           
-          echo "🔍 DEBUG: Publishing @jsonbored/safemocker@$VERSION to npm..."
-          echo "🔍 DEBUG: Using npm trusted publishing (OIDC)"
-          echo "🔍 DEBUG: npm version: $(npm --version)"
-          echo "🔍 DEBUG: Repository: ${{ github.repository }}"
-          echo "🔍 DEBUG: Workflow file: publish-release.yml"
-          
-          # #region agent log
-          echo "🔍 DEBUG: Pre-publish environment check..."
-          echo "NODE_AUTH_TOKEN is set: $([ -n "${NODE_AUTH_TOKEN:-}" ] && echo 'YES' || echo 'NO')"
-          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "⚠️ WARNING: NODE_AUTH_TOKEN is set (this should NOT happen with OIDC)"
-            echo "Value length: ${#NODE_AUTH_TOKEN} characters"
-            echo "First 10 chars: ${NODE_AUTH_TOKEN:0:10}..."
-          fi
-          echo "NPM_CONFIG_USERCONFIG: ${NPM_CONFIG_USERCONFIG:-not set}"
-          
-          # Check the actual .npmrc file location (set by setup-node)
-          NPMRC_FILE="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-          if [ -f "$NPMRC_FILE" ]; then
-            echo "🔍 DEBUG: $NPMRC_FILE exists, checking contents..."
-            echo "Full contents:"
-            cat "$NPMRC_FILE"
-            if grep -qE "(authToken|_authToken|\$\{NODE_AUTH_TOKEN\})" "$NPMRC_FILE"; then
-              echo "⚠️ WARNING: $NPMRC_FILE contains auth token references"
-            fi
-          else
-            echo "✅ $NPMRC_FILE does not exist"
-          fi
-          
-          if [ -f ~/.npmrc ] && [ "$NPMRC_FILE" != "$HOME/.npmrc" ]; then
-            echo "🔍 DEBUG: ~/.npmrc also exists (separate from NPM_CONFIG_USERCONFIG)"
-            grep -E "(authToken|_authToken)" ~/.npmrc || echo "No auth tokens in ~/.npmrc"
-          fi
-          # #endregion
-          
-          # CRITICAL: For trusted publishing, NODE_AUTH_TOKEN must NOT be set
-          # According to official npm docs, setup-node should NOT create NODE_AUTH_TOKEN
-          # when using OIDC (id-token: write + registry-url without NODE_AUTH_TOKEN input)
-          # If it's set, something is wrong - unset it and clean .npmrc
-          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "⚠️ WARNING: NODE_AUTH_TOKEN is unexpectedly set - this prevents OIDC from working"
-            echo "Unsetting NODE_AUTH_TOKEN to force OIDC usage..."
-            unset NODE_AUTH_TOKEN
-            export NODE_AUTH_TOKEN=""  # Ensure it's unset in the environment
-          fi
-          
-          # Clean up the actual .npmrc file that setup-node creates
-          # This file is at $NPM_CONFIG_USERCONFIG (typically /home/runner/work/_temp/.npmrc)
-          NPMRC_FILE="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-          if [ -f "$NPMRC_FILE" ]; then
-            echo "🔍 DEBUG: Cleaning up $NPMRC_FILE..."
-            if grep -qE "(authToken|_authToken|\$\{NODE_AUTH_TOKEN\})" "$NPMRC_FILE"; then
-              echo "⚠️ Removing auth token references from $NPMRC_FILE..."
-              # Remove lines containing auth tokens or variable references
-              sed -i '/authToken/d; /\${NODE_AUTH_TOKEN}/d' "$NPMRC_FILE" || true
-              # If file is now empty or only has whitespace, delete it
-              if [ ! -s "$NPMRC_FILE" ] || [ -z "$(cat "$NPMRC_FILE" | tr -d '[:space:]')" ]; then
-                echo "⚠️ $NPMRC_FILE is now empty, deleting it..."
-                rm -f "$NPMRC_FILE"
-              else
-                echo "✅ Cleaned $NPMRC_FILE (remaining contents):"
-                cat "$NPMRC_FILE"
+          # Clean up any .npmrc files that might interfere with OIDC
+          if [ -n "$NPM_CONFIG_USERCONFIG" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
+            if grep -qE "(authToken|_authToken|\$\{NODE_AUTH_TOKEN\})" "$NPM_CONFIG_USERCONFIG"; then
+              sed -i '/authToken/d; /\${NODE_AUTH_TOKEN}/d' "$NPM_CONFIG_USERCONFIG" || true
+              if [ ! -s "$NPM_CONFIG_USERCONFIG" ]; then
+                rm -f "$NPM_CONFIG_USERCONFIG"
               fi
-            else
-              echo "✅ $NPMRC_FILE does not contain auth tokens"
             fi
           fi
           
-          # Also clean ~/.npmrc if it exists separately
-          if [ -f ~/.npmrc ] && [ "$NPMRC_FILE" != "$HOME/.npmrc" ]; then
-            if grep -qE "(authToken|_authToken)" ~/.npmrc; then
-              echo "⚠️ Removing auth token references from ~/.npmrc..."
-              sed -i '/authToken/d' ~/.npmrc || true
-            fi
-          fi
-          
-          # Verify NODE_AUTH_TOKEN is still unset after cleanup
           if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "❌ Error: NODE_AUTH_TOKEN is still set after cleanup" >&2
-            exit 1
+            unset NODE_AUTH_TOKEN
           fi
-          echo "✅ NODE_AUTH_TOKEN is unset"
           
-          # Verify OIDC token environment variables are available
           if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
             echo "❌ Error: OIDC token not available. Check id-token: write permission." >&2
             exit 1
           fi
-          echo "✅ OIDC token environment variables are set"
           
-          # According to official npm docs (https://docs.npmjs.com/trusted-publishers):
-          # - npm CLI automatically detects OIDC environments when:
-          #   1. id-token: write permission is set (✓ configured)
-          #   2. registry-url is set in setup-node (✓ configured)
-          #   3. No NODE_AUTH_TOKEN is provided (✓ unset above)
-          # - Provenance is automatically generated (no --provenance flag needed)
-          # - Just run: npm publish
-          # - For scoped packages, --access public is required
-          
-          # Verify npm version supports trusted publishing (requires >= 11.5.1)
-          NPM_VERSION=$(npm --version)
-          echo "✅ npm version $NPM_VERSION (trusted publishing requires >= 11.5.1)"
-          
-          # Publish using trusted publishing
-          # The npm CLI will automatically:
-          # 1. Detect OIDC environment
-          # 2. Use OIDC token for authentication
-          # 3. Generate provenance attestation automatically
-          if ! npm publish --access public; then
-            echo "" >&2
-            echo "❌ Error: npm publish failed" >&2
-            echo "" >&2
-            echo "🔍 TROUBLESHOOTING: npm trusted publishing configuration" >&2
-            echo "" >&2
-            echo "According to npm docs, verify the following in npm trusted publisher settings:" >&2
-            echo "  All fields are case-sensitive and must match exactly:" >&2
-            echo "  1. Organization/User: JSONbored (must match GitHub org/username exactly)" >&2
-            echo "  2. Repository: safemocker (just the repo name, or JSONbored/safemocker)" >&2
-            echo "  3. Workflow filename: publish-release.yml (must include .yml extension)" >&2
-            echo "" >&2
-            echo "Current workflow values:" >&2
-            echo "  - Repository: ${{ github.repository }}" >&2
-            echo "  - Workflow file: publish-release.yml" >&2
-            echo "" >&2
-            echo "Note: npm does not verify trusted publisher configuration when you save it." >&2
-            echo "Errors only appear when you attempt to publish." >&2
-            echo "" >&2
-            echo "See: https://docs.npmjs.com/trusted-publishers/" >&2
-            exit 1
-          fi
-          
-          echo "✅ Published @jsonbored/safemocker@$VERSION to npm"
+          npm publish --access public
 
       - name: Verify npm publish
         run: |
-          set -e  # Exit on error
+          set -e
           
           VERSION="${{ steps.version.outputs.VERSION }}"
-          
-          echo "🔍 DEBUG: Verifying package is published on npm..."
-          
-          # Wait a moment for npm registry to update
           sleep 2
           
-          # Verify package exists on npm
           if ! npm view "@jsonbored/safemocker@$VERSION" version > /dev/null 2>&1; then
             echo "❌ Error: Package not found on npm after publish" >&2
-            echo "🔍 DEBUG: Attempted to verify: @jsonbored/safemocker@$VERSION" >&2
-            echo "🔍 DEBUG: This may indicate the publish failed or npm registry hasn't updated yet" >&2
             exit 1
           fi
-          
-          PUBLISHED_VERSION=$(npm view "@jsonbored/safemocker@$VERSION" version)
-          echo "✅ Verified: @jsonbored/safemocker@$PUBLISHED_VERSION is published on npm"
 
       - name: Extract changelog for version
         id: changelog
         run: |
-          set -e  # Exit on error
+          set -e
           
           VERSION="${{ steps.version.outputs.VERSION }}"
           
-          echo "🔍 DEBUG: Extracting changelog section for version $VERSION..."
-          
           if [ ! -f CHANGELOG.md ]; then
-            echo "⚠️ CHANGELOG.md not found, creating placeholder"
             echo "No significant changes for this release." > /tmp/release-notes.md
             echo "notes_path=/tmp/release-notes.md" >> $GITHUB_OUTPUT
             exit 0
           fi
           
-          # Extract the version section from CHANGELOG.md
-          # Find the line with [VERSION] and extract until the next version section or end of file
-          # Skip empty lines and link definitions at the bottom
-          CHANGELOG_SECTION=$(awk -v version="${VERSION}" '
-            BEGIN { found=0; content_found=0; in_section=0 }
+          # Extract the version section from CHANGELOG.md using awk
+          # Use a here-document to avoid shell escaping issues
+          CHANGELOG_SECTION=$(awk -v version="$VERSION" '
+            BEGIN { found=0; in_section=0 }
             /^## \[/ {
-              if (found) exit  # Found next version section, stop
+              if (found) exit
               if (index($0, "[" version "]") > 0) {
                 found=1
                 in_section=1
-                next  # Skip the header line itself (we'll add it back)
+                next
               }
             }
             found && in_section {
-              # Skip link definitions at the bottom (lines starting with [version]:)
               if ($0 ~ /^\[.*\]: /) {
                 next
-              }
-              # Track if we have actual content (non-empty lines)
-              if (length($0) > 0) {
-                content_found=1
               }
               print
             }
           ' CHANGELOG.md)
           
-          # If no content found, create a placeholder
           if [ -z "$CHANGELOG_SECTION" ] || [ -z "$(echo "$CHANGELOG_SECTION" | grep -v '^$')" ]; then
-            echo "⚠️ No changelog content found for version $VERSION. Creating a placeholder."
             echo "No significant changes for this release." > /tmp/release-notes.md
           else
-            # Add the version header back
-            echo "## [$VERSION] - $(date +%Y-%m-%d)" > /tmp/release-notes.md
-            echo "" >> /tmp/release-notes.md
-            echo "$CHANGELOG_SECTION" >> /tmp/release-notes.md
+            {
+              echo "## [$VERSION] - $(date +%Y-%m-%d)"
+              echo ""
+              echo "$CHANGELOG_SECTION"
+            } > /tmp/release-notes.md
           fi
           
           echo "notes_path=/tmp/release-notes.md" >> $GITHUB_OUTPUT
-          
-          # Debug: Show what was extracted
-          echo "🔍 DEBUG: Extracted changelog section (first 10 lines):"
-          head -10 /tmp/release-notes.md || echo "(empty)"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
