@@ -83,11 +83,9 @@ jobs:
           # For trusted publishing, npm automatically uses OIDC token from GitHub Actions
           # The --provenance flag creates a signed provenance statement
           # Ensure trusted publishing is configured in npm: https://docs.npmjs.com/trusted-publishers/
+          # No NODE_AUTH_TOKEN needed - OIDC is used automatically with id-token: write permission
           echo "Publishing @jsonbored/safemocker@${{ steps.version.outputs.VERSION }} to npm..."
           npm publish --access public --provenance
-        env:
-          # No NODE_AUTH_TOKEN needed - OIDC is used automatically with id-token: write permission
-          # Verify trusted publishing is configured in npm package settings
       
       - name: Extract changelog for version
         id: changelog
