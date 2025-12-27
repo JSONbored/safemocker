@@ -92,10 +92,18 @@ commit_preprocessors = [
   { pattern = '^Merged PR #\\d+: (.+)', replace = "$1" },
   # Handle PR references in commit messages (e.g., "fix: issue (#123)")
   { pattern = '\\(#(\\d+)\\)', replace = "([#${1}](https://github.com/JSONbored/safemocker/pull/${1}))" },
+  # Handle standalone PR references (space before #, followed by digits, then non-digit or end)
+  { pattern = ' #(\\d+)([^0-9]|$)', replace = " [#${1}](https://github.com/JSONbored/safemocker/pull/${1})${2}" },
+  # Handle co-authored commits (Co-authored-by: user@example.com)
+  # Extract co-author information for better attribution
+  { pattern = 'Co-authored-by: (.+)', replace = "Co-authored-by: $1" },
   # Normalize multiple spaces to single space
   { pattern = '  +', replace = " " },
   # Remove trailing periods from commit messages for consistency
   { pattern = '\\.$', replace = "" },
+  # Clean up common merge commit prefixes
+  { pattern = "^Merge branch '[^']+' into ", replace = "" },
+  { pattern = '^Merge .+ into ', replace = "" },
 ]
 
 [bump]
