@@ -100,6 +100,9 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
+          # According to official npm docs, setup-node with registry-url + id-token: write
+          # should automatically use OIDC without needing NODE_AUTH_TOKEN
+          # If NODE_AUTH_TOKEN is set, it will be logged and cleaned up before publish
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -140,11 +143,49 @@ jobs:
           echo "🔍 DEBUG: Repository: ${{ github.repository }}"
           echo "🔍 DEBUG: Workflow file: publish-release.yml"
           
+          # #region agent log
+          echo "🔍 DEBUG: Pre-publish environment check..."
+          echo "NODE_AUTH_TOKEN is set: $([ -n "${NODE_AUTH_TOKEN:-}" ] && echo 'YES' || echo 'NO')"
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "⚠️ WARNING: NODE_AUTH_TOKEN is set (this should NOT happen with OIDC)"
+            echo "Value length: ${#NODE_AUTH_TOKEN} characters"
+            echo "First 10 chars: ${NODE_AUTH_TOKEN:0:10}..."
+          fi
+          if [ -f ~/.npmrc ]; then
+            echo "🔍 DEBUG: ~/.npmrc contents (auth-related lines only):"
+            grep -E "(authToken|_authToken|//registry.npmjs.org)" ~/.npmrc || echo "No auth configuration found"
+          else
+            echo "✅ ~/.npmrc does not exist"
+          fi
+          # #endregion
+          
+          # CRITICAL: For trusted publishing, NODE_AUTH_TOKEN must NOT be set
+          # According to official npm docs, setup-node should NOT create NODE_AUTH_TOKEN
+          # when using OIDC (id-token: write + registry-url without NODE_AUTH_TOKEN input)
+          # If it's set, something is wrong - unset it and clean .npmrc
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "⚠️ WARNING: NODE_AUTH_TOKEN is unexpectedly set - this prevents OIDC from working"
+            echo "Unsetting NODE_AUTH_TOKEN to force OIDC usage..."
+            unset NODE_AUTH_TOKEN
+          fi
+          # Clean up any auth tokens from .npmrc that might interfere
+          if [ -f ~/.npmrc ] && grep -q "_authToken" ~/.npmrc; then
+            echo "⚠️ Removing auth token references from ~/.npmrc..."
+            sed -i '/_authToken/d' ~/.npmrc || true
+          fi
+          
+          # Verify OIDC token environment variables are available
+          if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+            echo "❌ Error: OIDC token not available. Check id-token: write permission." >&2
+            exit 1
+          fi
+          echo "✅ OIDC token environment variables are set"
+          
           # According to official npm docs (https://docs.npmjs.com/trusted-publishers):
           # - npm CLI automatically detects OIDC environments when:
           #   1. id-token: write permission is set (✓ configured)
           #   2. registry-url is set in setup-node (✓ configured)
-          #   3. No NODE_AUTH_TOKEN is provided (✓ not provided)
+          #   3. No NODE_AUTH_TOKEN is provided (✓ unset above)
           # - Provenance is automatically generated (no --provenance flag needed)
           # - Just run: npm publish
           # - For scoped packages, --access public is required
