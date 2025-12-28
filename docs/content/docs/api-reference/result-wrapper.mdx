@@ -1,0 +1,136 @@
+---
+title: Result Wrapper
+description: SafeActionResult wrapper utilities and structure
+---
+
+## Overview
+
+Result wrapper functions ensure that action results conform to the `SafeActionResult` structure. These functions are used internally by `safemocker` to wrap action results, errors, and validation errors.
+
+<Badge variant="secondary">Internal API</Badge>
+
+<Callout type="info" title="Internal Usage">
+  These functions are used internally by `safemocker` to wrap action results. You typically don't need to call them directly - the mock client handles this automatically.
+</Callout>
+
+## SafeActionResult Structure
+
+All actions return a `SafeActionResult` structure. See the [Types documentation](/docs/api-reference/types) for complete type details.
+
+<AutoTypeTable path="src/types.ts" name="SafeActionResultType" />
+
+<Callout type="tip" title="Type-Safe Access">
+  With safemocker, all properties are accessible without type assertions. The type system ensures that when `data` is defined, `serverError` and `fieldErrors` are undefined, and vice versa.
+</Callout>
+
+## Result Wrapper Functions
+
+### wrapResult
+
+Wraps a successful handler result in SafeActionResult structure:
+
+<AutoTypeTable path="src/result-wrapper.ts" name="wrapResult" />
+
+```typescript
+import { wrapResult } from '@jsonbored/safemocker';
+
+const result = wrapResult({ id: '123', name: 'Test' });
+// result.data === { id: '123', name: 'Test' }
+// result.serverError === undefined
+// result.fieldErrors === undefined
+```
+
+### wrapError
+
+Wraps an error in SafeActionResult structure:
+
+<AutoTypeTable path="src/result-wrapper.ts" name="wrapError" />
+
+```typescript
+import { wrapError } from '@jsonbored/safemocker';
+
+// Error instance
+const result1 = wrapError(new Error('Custom error'), 'Default error');
+// result1.serverError === 'Custom error'
+
+// Non-Error value
+const result2 = wrapError('String error', 'Default error');
+// result2.serverError === 'Default error'
+```
+
+### wrapValidationErrors
+
+Wraps validation errors in SafeActionResult structure:
+
+<AutoTypeTable path="src/result-wrapper.ts" name="wrapValidationErrors" />
+
+```typescript
+import { wrapValidationErrors } from '@jsonbored/safemocker';
+
+const result = wrapValidationErrors({
+  name: ['Name is required', 'Name must be at least 3 characters'],
+  email: ['Invalid email format'],
+});
+// result.fieldErrors === { name: [...], email: [...] }
+// result.data === undefined
+// result.serverError === undefined
+```
+
+## Result Properties
+
+### data
+
+Contains the successful result from the action handler. Only present when the action succeeds.
+
+```typescript
+const result = await action({ name: 'John' });
+if (result.data) {
+  // TypeScript knows result.data is defined
+  console.log(result.data.id);
+}
+```
+
+### serverError
+
+Contains the error message if the action threw an error. Only present when an error occurs.
+
+```typescript
+const result = await action({ name: 'John' });
+if (result.serverError) {
+  // TypeScript knows result.serverError is defined
+  console.error(result.serverError);
+}
+```
+
+### fieldErrors
+
+Contains validation errors from input schema validation. Keys are field names (or paths for nested objects), values are arrays of error messages.
+
+```typescript
+const result = await action({ name: '', email: 'invalid' });
+if (result.fieldErrors) {
+  // TypeScript knows result.fieldErrors is defined
+  console.log(result.fieldErrors.name); // ['Name is required']
+  console.log(result.fieldErrors.email); // ['Invalid email format']
+}
+```
+
+### validationErrors
+
+Contains validation errors from output schema validation. Used to distinguish output validation errors from input validation errors.
+
+```typescript
+const result = await action({ name: 'John' });
+if (result.validationErrors) {
+  // TypeScript knows result.validationErrors is defined
+  console.log(result.validationErrors); // Output validation errors
+}
+```
+
+<Callout type="warning" title="Field Errors vs Validation Errors">
+  - `fieldErrors` - Used for input validation errors (from `inputSchema`)
+  - `validationErrors` - Used for output validation errors (from `outputSchema`)
+  
+  Both have the same structure, but the distinction helps identify where validation failed.
+</Callout>
+

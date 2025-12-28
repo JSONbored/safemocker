@@ -1,0 +1,310 @@
+---
+title: Helpers
+description: Helper functions for creating pre-configured action clients
+---
+
+## Overview
+
+Helper functions provide convenient ways to create pre-configured action clients with common middleware patterns already applied. These functions simplify setup and ensure middleware is configured correctly.
+
+<Callout type="info" title="Recommended Approach">
+  Using helper functions is the recommended way to set up action clients. They provide a cleaner API and ensure middleware is configured correctly, matching production patterns.
+</Callout>
+
+## Available Helpers
+
+### createAuthedActionClient
+
+Creates a mock action client with authentication middleware pre-configured.
+
+<AutoTypeTable path="src/helpers.ts" name="createAuthedActionClient" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createAuthedActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createAuthedActionClient({
+  auth: {
+    testUserId: 'user-123',
+    testUserEmail: 'user@example.com',
+  },
+});
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId is automatically 'user-123'
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createAuthedActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createAuthedActionClient({
+  auth: {
+    testUserId: 'user-123',
+    testUserEmail: 'user@example.com',
+  },
+});
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId is automatically 'user-123'
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+</Tabs>
+
+### createOptionalAuthActionClient
+
+Creates a mock action client with optional authentication middleware pre-configured.
+
+<AutoTypeTable path="src/helpers.ts" name="createOptionalAuthActionClient" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createOptionalAuthActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createOptionalAuthActionClient({
+  auth: {
+    testUserId: 'user-123',
+  },
+});
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId may be available if authenticated
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createOptionalAuthActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createOptionalAuthActionClient({
+  auth: {
+    testUserId: 'user-123',
+  },
+});
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId may be available if authenticated
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+</Tabs>
+
+### createRateLimitedActionClient
+
+Creates a mock action client with rate limiting middleware pre-configured.
+
+<AutoTypeTable path="src/helpers.ts" name="createRateLimitedActionClient" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createRateLimitedActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const client = createRateLimitedActionClient(metadataSchema);
+
+const action = client
+  .inputSchema(z.object({ query: z.string() }))
+  .metadata({ actionName: 'search', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { results: [] };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createRateLimitedActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const client = createRateLimitedActionClient(metadataSchema);
+
+const action = client
+  .inputSchema(z.object({ query: z.string() }))
+  .metadata({ actionName: 'search', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { results: [] };
+  });
+```
+  </Tab>
+</Tabs>
+
+### createMetadataValidatedActionClient
+
+Creates a mock action client with metadata validation middleware pre-configured.
+
+<AutoTypeTable path="src/helpers.ts" name="createMetadataValidatedActionClient" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMetadataValidatedActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const client = createMetadataValidatedActionClient(metadataSchema);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .metadata({ actionName: 'getUser', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { id: parsedInput.id };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMetadataValidatedActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const client = createMetadataValidatedActionClient(metadataSchema);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .metadata({ actionName: 'getUser', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { id: parsedInput.id };
+  });
+```
+  </Tab>
+</Tabs>
+
+### createCompleteActionClient
+
+Creates a complete set of pre-configured action clients matching the real safe-action.ts pattern.
+
+<AutoTypeTable path="src/helpers.ts" name="createCompleteActionClient" />
+
+<Callout type="tip" title="One-Line Jest Mock">
+  This is the recommended way to set up the mock for the one-line Jest mock pattern. It creates all the action clients you typically need in production.
+</Callout>
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createCompleteActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const {
+  actionClient,        // Base client
+  loggedAction,        // With error handling
+  rateLimitedAction,   // With rate limiting
+  authedAction,        // With authentication
+  optionalAuthAction,  // With optional authentication
+} = createCompleteActionClient(metadataSchema, {
+  defaultServerError: 'Something went wrong',
+  auth: {
+    testUserId: 'test-user-id',
+  },
+});
+
+// Use in __mocks__/next-safe-action.ts
+export function createSafeActionClient(config?: any) {
+  // Your implementation
+}
+export { authedAction, optionalAuthAction, rateLimitedAction };
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createCompleteActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const {
+  actionClient,        // Base client
+  loggedAction,        // With error handling
+  rateLimitedAction,   // With rate limiting
+  authedAction,        // With authentication
+  optionalAuthAction,  // With optional authentication
+} = createCompleteActionClient(metadataSchema, {
+  defaultServerError: 'Something went wrong',
+  auth: {
+    testUserId: 'test-user-id',
+  },
+});
+
+// Use in vitest.setup.ts
+import { vi } from 'vitest';
+vi.mock('next-safe-action', () => {
+  return {
+    createSafeActionClient: (config?: any) => {
+      // Your implementation
+    },
+    authedAction,
+    optionalAuthAction,
+    rateLimitedAction,
+  };
+});
+```
+  </Tab>
+</Tabs>
+
+## Configuration Options
+
+All helper functions accept an optional `MockSafeActionClientConfig` parameter:
+
+```typescript
+interface MockSafeActionClientConfig {
+  defaultServerError?: string;  // Default: 'Something went wrong'
+  isProduction?: boolean;       // Default: false
+  auth?: {
+    enabled?: boolean;          // Default: true
+    testUserId?: string;        // Default: 'test-user-id'
+    testUserEmail?: string;     // Default: 'test@example.com'
+    testAuthToken?: string;     // Default: 'test-token'
+  };
+}
+```
+
+<Callout type="warning" title="Internal Usage">
+  While these helper functions are exported and can be used directly, they are primarily designed for use in the one-line Jest mock pattern. For most use cases, using the pre-configured clients from `createCompleteActionClient` is recommended.
+</Callout>
+

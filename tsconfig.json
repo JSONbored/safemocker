@@ -19,6 +19,6 @@
     "allowImportingTsExtensions": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "__tests__/**/*", "examples/**/*", "**/*.test.ts", "src/actions/**/*"]
+  "exclude": ["node_modules", "dist", "__tests__/**/*", "examples/**/*", "**/*.test.ts", "src/actions/**/*", "src/components/**/*", "src/lib/**/*"]
 }
 

@@ -1,0 +1,281 @@
+---
+title: Type Safety Guide
+description: Understanding type safety with safemocker
+---
+
+## Overview
+
+`safemocker` provides **100% type safety** with no type assertions or manual type guards needed. All types are inferred directly from your `next-safe-action` schemas.
+
+## Type Inference
+
+### Automatic Inference
+
+TypeScript automatically infers all types from your action schemas:
+
+```typescript
+import { createPost } from './actions';
+
+const result = await createPost({
+  title: 'My Post',
+  content: 'This is the content...',
+  slug: 'my-post',
+});
+
+// TypeScript knows:
+// - result.data is typed from outputSchema
+// - result.fieldErrors is typed correctly
+// - result.serverError is typed correctly
+// - No type assertions needed!
+```
+
+### Using InferSafeActionFnResult
+
+For explicit typing or better IntelliSense:
+
+```typescript
+import type { InferSafeActionFnResult } from 'next-safe-action';
+import { createPost } from './actions';
+
+type CreatePostResult = InferSafeActionFnResult<typeof createPost>;
+
+const result: CreatePostResult = await createPost({ /* ... */ });
+
+// Now you have explicit type for result
+```
+
+## Type Structure
+
+The `SafeActionResult` type structure. See the [Types documentation](/docs/api-reference/types) for complete type details.
+
+<AutoTypeTable path="src/types.ts" name="SafeActionResultType" />
+
+### Data Type
+
+Inferred from your `outputSchema`:
+
+```typescript
+.outputSchema(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    // ...
+  })
+)
+
+// result.data is typed as:
+// {
+//   id: string;
+//   title: string;
+//   // ...
+// } | undefined
+```
+
+### Field Errors Type
+
+Inferred from your `inputSchema`:
+
+```typescript
+.inputSchema(
+  z.object({
+    title: z.string().min(1),
+    content: z.string().min(50),
+  })
+)
+
+// result.fieldErrors is typed as:
+// {
+//   title?: string[];
+//   content?: string[];
+// } | undefined
+```
+
+### Server Error Type
+
+Inferred from your error handler or defaults to `string`:
+
+```typescript
+// result.serverError is typed as:
+// string | undefined
+```
+
+## No Type Assertions Needed
+
+With `safemocker`, you never need:
+
+- ❌ Type assertions (`as`, `!`)
+- ❌ Type guards (`if (result.data)`)
+- ❌ Manual type casting
+- ❌ `unknown` types
+
+Everything is properly typed from your schemas!
+
+## Example: Full Type Safety
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createPost } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+type CreatePostResult = InferSafeActionFnResult<typeof createPost>;
+
+describe('createPost', () => {
+  it('should be fully type-safe', async () => {
+    const result: CreatePostResult = await createPost({
+      title: 'My Post',
+      content: 'This is the content...',
+      slug: 'my-post',
+    });
+
+    // ✅ TypeScript knows result.data structure
+    if (result.data) {
+      expect(result.data.title).toBe('My Post');
+      expect(result.data.id).toBeDefined();
+      // TypeScript autocomplete works perfectly!
+    }
+
+    // ✅ TypeScript knows fieldErrors structure
+    if (result.fieldErrors) {
+      expect(result.fieldErrors.title).toBeDefined();
+      expect(result.fieldErrors.content).toBeDefined();
+    }
+
+    // ✅ TypeScript knows serverError type
+    if (result.serverError) {
+      expect(typeof result.serverError).toBe('string');
+    }
+  });
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createPost } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+type CreatePostResult = InferSafeActionFnResult<typeof createPost>;
+
+describe('createPost', () => {
+  it('should be fully type-safe', async () => {
+    const result: CreatePostResult = await createPost({
+      title: 'My Post',
+      content: 'This is the content...',
+      slug: 'my-post',
+    });
+
+    // ✅ TypeScript knows result.data structure
+    if (result.data) {
+      expect(result.data.title).toBe('My Post');
+      expect(result.data.id).toBeDefined();
+      // TypeScript autocomplete works perfectly!
+    }
+
+    // ✅ TypeScript knows fieldErrors structure
+    if (result.fieldErrors) {
+      expect(result.fieldErrors.title).toBeDefined();
+      expect(result.fieldErrors.content).toBeDefined();
+    }
+
+    // ✅ TypeScript knows serverError type
+    if (result.serverError) {
+      expect(typeof result.serverError).toBe('string');
+    }
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+## Benefits
+
+1. **Catch Errors Early**: TypeScript catches type errors at compile time
+2. **Better IntelliSense**: Full autocomplete for all result properties
+3. **Refactoring Safety**: Rename fields and TypeScript will catch all usages
+4. **Documentation**: Types serve as inline documentation
+5. **No Runtime Overhead**: Types are compile-time only
+
+## Common Patterns
+
+### Pattern 1: Direct Property Access
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+
+const result = await createPost({ /* ... */ });
+expect(result.data?.title).toBe('My Post');
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+
+const result = await createPost({ /* ... */ });
+expect(result.data?.title).toBe('My Post');
+```
+  </Tab>
+</Tabs>
+
+### Pattern 2: Type Guard (Optional)
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+
+const result = await createPost({ /* ... */ });
+if (result.data) {
+  // TypeScript narrows type here
+  expect(result.data.title).toBe('My Post');
+}
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+
+const result = await createPost({ /* ... */ });
+if (result.data) {
+  // TypeScript narrows type here
+  expect(result.data.title).toBe('My Post');
+}
+```
+  </Tab>
+</Tabs>
+
+### Pattern 3: Error Checking
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+
+const result = await createPost({ /* ... */ });
+if (result.fieldErrors) {
+  // TypeScript knows fieldErrors structure
+  expect(result.fieldErrors.title).toBeDefined();
+}
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+
+const result = await createPost({ /* ... */ });
+if (result.fieldErrors) {
+  // TypeScript knows fieldErrors structure
+  expect(result.fieldErrors.title).toBeDefined();
+}
+```
+  </Tab>
+</Tabs>
+
+## See Also
+
+- [Testing Guide](/docs/guides/testing)
+- [Production Actions Example](/docs/examples/production-actions)
+- [API Reference](/docs/api-reference)

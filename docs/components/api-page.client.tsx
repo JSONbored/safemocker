@@ -1,0 +1,8 @@
+'use client';
+import { defineClientConfig } from 'fumadocs-openapi/ui/client';
+
+export default defineClientConfig({
+  // Client-side configuration for OpenAPI API explorer
+  // Fumadocs-openapi automatically generates code samples
+});
+

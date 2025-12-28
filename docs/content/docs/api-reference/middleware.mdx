@@ -1,0 +1,378 @@
+---
+title: Middleware
+description: Middleware creation and execution for action chains
+---
+
+## Overview
+
+Middleware functions allow you to add custom logic to the action execution chain, such as authentication, logging, or rate limiting. Middleware executes in the order it's added, before the action handler runs.
+
+<Callout type="info" title="Middleware Execution Order">
+  Middleware functions are executed in the order they are added using `.use()`. Each middleware receives the context from previous middleware and can modify it before passing it to the next middleware or handler.
+</Callout>
+
+## Middleware Type
+
+The `Middleware` type is a function type that defines the signature for middleware functions. See the [Types documentation](/docs/api-reference/types) for complete type details and examples.
+
+## Pre-built Middleware
+
+`safemocker` provides several pre-built middleware functions for common patterns:
+
+### Authentication Middleware
+
+<AutoTypeTable path="src/middleware.ts" name="createAuthedMiddleware" />
+
+<Tabs items={['Required Auth', 'Optional Auth']} groupId="auth-middleware">
+  <Tab value="Required Auth">
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createAuthedMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const middleware = createAuthedMiddleware({
+  defaultServerError: 'Error',
+  isProduction: false,
+  auth: {
+    enabled: true,
+    testUserId: 'user-123',
+    testUserEmail: 'user@example.com',
+    testAuthToken: 'test-token',
+  },
+});
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId, ctx.userEmail, ctx.authToken are available
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createAuthedMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const middleware = createAuthedMiddleware({
+  defaultServerError: 'Error',
+  isProduction: false,
+  auth: {
+    enabled: true,
+    testUserId: 'user-123',
+    testUserEmail: 'user@example.com',
+    testAuthToken: 'test-token',
+  },
+});
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId, ctx.userEmail, ctx.authToken are available
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+</Tabs>
+  </Tab>
+  <Tab value="Optional Auth">
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createOptionalAuthMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const middleware = createOptionalAuthMiddleware({
+  defaultServerError: 'Error',
+  isProduction: false,
+  auth: {
+    enabled: true,
+    testUserId: 'user-123',
+    testUserEmail: 'user@example.com',
+  },
+});
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId may be available if authenticated
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createOptionalAuthMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const middleware = createOptionalAuthMiddleware({
+  defaultServerError: 'Error',
+  isProduction: false,
+  auth: {
+    enabled: true,
+    testUserId: 'user-123',
+    testUserEmail: 'user@example.com',
+  },
+});
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId may be available if authenticated
+    return { id: parsedInput.id, userId: ctx.userId };
+  });
+```
+  </Tab>
+</Tabs>
+  </Tab>
+</Tabs>
+
+
+
+### Metadata Validation Middleware
+
+<AutoTypeTable path="src/middleware.ts" name="createMetadataValidationMiddleware" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMetadataValidationMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const middleware = createMetadataValidationMiddleware(metadataSchema);
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .metadata({ actionName: 'getUser', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { id: parsedInput.id };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMetadataValidationMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const middleware = createMetadataValidationMiddleware(metadataSchema);
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ id: z.string() }))
+  .metadata({ actionName: 'getUser', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { id: parsedInput.id };
+  });
+```
+  </Tab>
+</Tabs>
+
+<Callout type="warning" title="Metadata Validation">
+  If metadata validation fails, the middleware throws an error that is caught and converted to a SafeActionResult with a serverError.
+</Callout>
+
+### Rate Limiting Middleware
+
+<AutoTypeTable path="src/middleware.ts" name="createRateLimitMiddleware" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createRateLimitMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const middleware = createRateLimitMiddleware(metadataSchema);
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ query: z.string() }))
+  .metadata({ actionName: 'search', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { results: [] };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createRateLimitMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const middleware = createRateLimitMiddleware(metadataSchema);
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+
+const action = client
+  .inputSchema(z.object({ query: z.string() }))
+  .metadata({ actionName: 'search', category: 'user' })
+  .action(async ({ parsedInput }) => {
+    return { results: [] };
+  });
+```
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Rate Limiting in Tests">
+  In test environments, actual rate limiting is skipped, but the middleware validates that metadata is present and matches the schema. This ensures your actions have the required metadata structure without enforcing rate limits in tests.
+</Callout>
+
+### Error Handling Middleware
+
+<AutoTypeTable path="src/middleware.ts" name="createErrorHandlingMiddleware" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createErrorHandlingMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+
+const middleware = createErrorHandlingMiddleware({
+  defaultServerError: 'Something went wrong',
+  isProduction: false,
+  auth: { enabled: true, testUserId: 'test' },
+});
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createErrorHandlingMiddleware, createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+
+const middleware = createErrorHandlingMiddleware({
+  defaultServerError: 'Something went wrong',
+  isProduction: false,
+  auth: { enabled: true, testUserId: 'test' },
+});
+
+const client = createMockSafeActionClient();
+client.use(middleware);
+```
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Error Handling">
+  This middleware is primarily used for consistency with production middleware patterns. Actual error handling and conversion to SafeActionResult happens in the action wrapper.
+</Callout>
+
+## Custom Middleware
+
+You can create custom middleware for your specific needs:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+// Custom logging middleware
+client.use(async ({ next, ctx = {}, metadata }) => {
+  console.log('Action started:', metadata?.actionName);
+  const startTime = Date.now();
+  
+  const result = await next({ ctx: { ...ctx, startTime } });
+  
+  const duration = Date.now() - startTime;
+  console.log('Action completed in', duration, 'ms');
+  
+  return result;
+});
+
+const action = client
+  .inputSchema(z.object({ name: z.string() }))
+  .metadata({ actionName: 'createUser' })
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.startTime is available from custom middleware
+    return { id: '123', name: parsedInput.name };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+// Custom logging middleware
+client.use(async ({ next, ctx = {}, metadata }) => {
+  console.log('Action started:', metadata?.actionName);
+  const startTime = Date.now();
+  
+  const result = await next({ ctx: { ...ctx, startTime } });
+  
+  const duration = Date.now() - startTime;
+  console.log('Action completed in', duration, 'ms');
+  
+  return result;
+});
+
+const action = client
+  .inputSchema(z.object({ name: z.string() }))
+  .metadata({ actionName: 'createUser' })
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.startTime is available from custom middleware
+    return { id: '123', name: parsedInput.name };
+  });
+```
+  </Tab>
+</Tabs>
+
+## Helper Functions
+
+For convenience, `safemocker` provides helper functions that create pre-configured clients with middleware already applied:
+
+- `createAuthedActionClient()` - Client with authentication middleware
+- `createOptionalAuthActionClient()` - Client with optional authentication middleware
+- `createRateLimitedActionClient()` - Client with rate limiting middleware
+- `createMetadataValidatedActionClient()` - Client with metadata validation middleware
+- `createCompleteActionClient()` - Client with all common middleware patterns
+
+<Callout type="tip" title="Using Helper Functions">
+  Helper functions are the recommended way to set up clients with middleware. They provide a cleaner API and ensure middleware is configured correctly.
+</Callout>
+
+See the [Helpers API](/docs/api-reference/helpers) for more details on these functions.
+

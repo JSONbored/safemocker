@@ -1,0 +1,239 @@
+---
+title: Advanced Usage
+description: Advanced patterns and use cases for safemocker
+---
+
+## Custom Middleware
+
+You can create custom middleware chains:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+// Add custom middleware
+const customAction = client
+  .use(async ({ next, ctx }) => {
+    // Custom middleware logic
+    return next({
+      ctx: {
+        ...ctx,
+        customField: 'value',
+      },
+    });
+  })
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.customField is available
+    return { id: parsedInput.id, custom: ctx.customField };
+  });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+// Add custom middleware
+const customAction = client
+  .use(async ({ next, ctx }) => {
+    // Custom middleware logic
+    return next({
+      ctx: {
+        ...ctx,
+        customField: 'value',
+      },
+    });
+  })
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.customField is available
+    return { id: parsedInput.id, custom: ctx.customField };
+  });
+```
+  </Tab>
+</Tabs>
+
+## Testing Error Scenarios
+
+Test various error conditions:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+
+// Test validation errors
+const invalidResult = await action({ invalid: 'input' });
+expect(invalidResult.fieldErrors).toBeDefined();
+
+// Test server errors
+const errorAction = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Server error');
+  });
+
+const errorResult = await errorAction({});
+expect(errorResult.serverError).toBeDefined();
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+
+// Test validation errors
+const invalidResult = await action({ invalid: 'input' });
+expect(invalidResult.fieldErrors).toBeDefined();
+
+// Test server errors
+const errorAction = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Server error');
+  });
+
+const errorResult = await errorAction({});
+expect(errorResult.serverError).toBeDefined();
+```
+  </Tab>
+</Tabs>
+
+## Testing Auth Context
+
+Verify authentication context is properly injected:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createAuthedActionClient } from '@jsonbored/safemocker/jest';
+
+const { authedAction } = createAuthedActionClient({
+  testUserId: 'custom-user-id',
+  testUserEmail: 'custom@example.com',
+});
+
+const action = authedAction
+  .inputSchema(z.object({}))
+  .action(async ({ ctx }) => {
+    return { userId: ctx.userId };
+  });
+
+const result = await action({});
+expect(result.data?.userId).toBe('custom-user-id');
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createAuthedActionClient } from '@jsonbored/safemocker/vitest';
+
+const { authedAction } = createAuthedActionClient({
+  testUserId: 'custom-user-id',
+  testUserEmail: 'custom@example.com',
+});
+
+const action = authedAction
+  .inputSchema(z.object({}))
+  .action(async ({ ctx }) => {
+    return { userId: ctx.userId };
+  });
+
+const result = await action({});
+expect(result.data?.userId).toBe('custom-user-id');
+```
+  </Tab>
+</Tabs>
+
+## Complex Validation
+
+Test complex validation scenarios:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+const complexAction = client
+  .inputSchema(
+    z.object({
+      items: z.array(
+        z.object({
+          name: z.string().min(1),
+          count: z.number().int().positive(),
+        })
+      ).min(1),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    return { total: parsedInput.items.length };
+  });
+
+// Test array validation
+const result = await complexAction({ items: [] });
+expect(result.fieldErrors?.items).toBeDefined();
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+const complexAction = client
+  .inputSchema(
+    z.object({
+      items: z.array(
+        z.object({
+          name: z.string().min(1),
+          count: z.number().int().positive(),
+        })
+      ).min(1),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    return { total: parsedInput.items.length };
+  });
+
+// Test array validation
+const result = await complexAction({ items: [] });
+expect(result.fieldErrors?.items).toBeDefined();
+```
+  </Tab>
+</Tabs>
+
+## Output Schema Validation
+
+Test output schema validation:
+
+```typescript
+const action = client
+  .inputSchema(z.object({}))
+  .outputSchema(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+    })
+  )
+  .action(async () => {
+    // This will fail output validation
+    return { invalid: 'output' };
+  });
+
+const result = await action({});
+// Output validation errors are caught
+```
+

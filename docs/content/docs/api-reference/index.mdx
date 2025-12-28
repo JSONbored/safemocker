@@ -1,0 +1,68 @@
+---
+title: API Reference
+description: Complete API documentation for safemocker
+---
+
+## Overview
+
+This section contains the complete API reference for `safemocker`. All APIs are fully type-safe and work seamlessly with TypeScript.
+
+## Core APIs
+
+<Cards>
+  <Card title="Client API" href="/docs/api-reference/client" description="Mock safe action client and builders" />
+  <Card title="Types" href="/docs/api-reference/types" description="TypeScript types and interfaces" />
+  <Card title="OpenAPI" href="/docs/api-reference/openapi" description="Complete OpenAPI specification for all example actions" />
+  <Card title="Middleware" href="/docs/api-reference/middleware" description="Middleware creation and execution" />
+  <Card title="Validation" href="/docs/api-reference/validation" description="Input and output validation" />
+  <Card title="Error Handling" href="/docs/api-reference/error-handler" description="Error handling utilities" />
+</Cards>
+
+## Adapters
+
+<Cards>
+  <Card title="Jest Adapter" href="/docs/api-reference/jest" description="Jest-specific adapter and mock" />
+  <Card title="Vitest Adapter" href="/docs/api-reference/vitest" description="Vitest-specific adapter and mock" />
+</Cards>
+
+## Utilities
+
+<Cards>
+  <Card title="Helpers" href="/docs/api-reference/helpers" description="Utility functions" />
+  <Card title="Result Wrapper" href="/docs/api-reference/result-wrapper" description="SafeActionResult wrapper utilities" />
+</Cards>
+
+## Quick Reference
+
+### Main Export
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+```
+  </Tab>
+</Tabs>
+
+### Jest Mock Setup
+
+```typescript
+// __mocks__/next-safe-action.ts
+export * from '@jsonbored/safemocker/jest/mock';
+```
+
+### Vitest Mock Setup
+
+```typescript
+// vitest.setup.ts
+import { vi } from 'vitest';
+import * as safemockerMock from '@jsonbored/safemocker/vitest/mock';
+
+vi.mock('next-safe-action', () => safemockerMock);
+```
+

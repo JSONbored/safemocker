@@ -1,0 +1,112 @@
+---
+title: Best Practices
+description: Best practices for using safemocker effectively
+---
+
+## Use Real Production Code
+
+Test your actual production `safe-action.ts` file. Don't create separate test-only versions:
+
+```typescript
+// ✅ GOOD - Use real production code
+import { authedAction } from '../actions/safe-action';
+
+// ❌ BAD - Don't create test-only versions
+import { testAuthedAction } from '../actions/test-safe-action';
+```
+
+## Leverage Type Safety
+
+Always use `InferSafeActionFnResult`:
+
+```typescript
+// ✅ GOOD
+type MyActionResult = InferSafeActionFnResult<typeof myAction>;
+const typedResult: MyActionResult = result;
+
+// ❌ BAD
+const typedResult = result as any;
+```
+
+## Test All Scenarios
+
+Cover all code paths:
+
+```typescript
+describe('myAction', () => {
+  it('should handle success', async () => {
+    // Test success case
+  });
+
+  it('should handle validation errors', async () => {
+    // Test validation errors
+  });
+
+  it('should handle server errors', async () => {
+    // Test server errors
+  });
+});
+```
+
+## Use Descriptive Test Names
+
+Make test names clear and descriptive:
+
+```typescript
+// ✅ GOOD
+it('should return validation error when name is empty', async () => {
+  // ...
+});
+
+// ❌ BAD
+it('test 1', async () => {
+  // ...
+});
+```
+
+## Keep Tests Simple
+
+Each test should verify one thing:
+
+```typescript
+// ✅ GOOD - One assertion per test
+it('should validate required fields', async () => {
+  const result = await action({});
+  expect(result.fieldErrors?.name).toBeDefined();
+});
+
+// ❌ BAD - Multiple unrelated assertions
+it('should do everything', async () => {
+  // Too many things
+});
+```
+
+## Test Real-World Scenarios
+
+Test scenarios that match production usage:
+
+```typescript
+// Test with realistic data
+const result = await createPost({
+  title: 'My Blog Post',
+  content: 'This is a realistic blog post with enough content to pass validation.',
+  slug: 'my-blog-post',
+});
+```
+
+## Organize Tests by Feature
+
+Group related tests together:
+
+```typescript
+describe('Post Actions', () => {
+  describe('createPost', () => {
+    // Tests for createPost
+  });
+
+  describe('updatePost', () => {
+    // Tests for updatePost
+  });
+});
+```
+

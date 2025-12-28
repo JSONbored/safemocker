@@ -7,6 +7,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Docs build outputs
+docs/.next/
+docs/.source/
+docs/out/
+
 # Testing
 coverage/
 .nyc_output/

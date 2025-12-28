@@ -1,0 +1,174 @@
+---
+title: Error Handling
+description: Error handling and error message configuration
+---
+
+## Overview
+
+Error handling functions ensure that server errors are properly formatted and returned in the `SafeActionResult` structure. Errors are automatically caught by the mock client and converted to a `SafeActionResult` with the `serverError` property set.
+
+<Badge variant="secondary">Internal API</Badge>
+
+## Error Handling Behavior
+
+Errors are automatically caught and formatted by the mock client:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+const action = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Database connection failed');
+  });
+
+const result = await action({});
+// result.serverError === 'Database connection failed'
+// result.data === undefined
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+const action = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Database connection failed');
+  });
+
+const result = await action({});
+// result.serverError === 'Database connection failed'
+// result.data === undefined
+```
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Automatic Error Handling">
+  All errors thrown in action handlers are automatically caught and converted to SafeActionResult. You don't need to wrap your handler in try-catch blocks.
+</Callout>
+
+## Production vs Development Error Messages
+
+You can configure whether to use detailed error messages (development) or generic messages (production):
+
+<Tabs items={['Development', 'Production']} groupId="error-messages">
+  <Tab value="Development">
+```typescript
+const client = createMockSafeActionClient({
+  defaultServerError: 'An unexpected error occurred',
+  isProduction: false, // Use detailed error messages
+});
+
+const action = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Database connection failed');
+  });
+
+const result = await action({});
+// result.serverError === 'Database connection failed' (detailed)
+```
+  </Tab>
+  <Tab value="Production">
+```typescript
+const client = createMockSafeActionClient({
+  defaultServerError: 'An unexpected error occurred',
+  isProduction: true, // Use generic error messages
+});
+
+const action = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Database connection failed');
+  });
+
+const result = await action({});
+// result.serverError === 'An unexpected error occurred' (generic)
+```
+  </Tab>
+</Tabs>
+
+## Error Types
+
+Different error types are handled differently:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+
+const client = createMockSafeActionClient({
+  defaultServerError: 'Something went wrong',
+  isProduction: false,
+});
+
+// Error instances - use error message if available
+const action1 = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Custom error message');
+  });
+// result.serverError === 'Custom error message'
+
+// Non-Error types - always use default message
+const action2 = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw 'String error';
+  });
+// result.serverError === 'Something went wrong'
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+
+const client = createMockSafeActionClient({
+  defaultServerError: 'Something went wrong',
+  isProduction: false,
+});
+
+// Error instances - use error message if available
+const action1 = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw new Error('Custom error message');
+  });
+// result.serverError === 'Custom error message'
+
+// Non-Error types - always use default message
+const action2 = client
+  .inputSchema(z.object({}))
+  .action(async () => {
+    throw 'String error';
+  });
+// result.serverError === 'Something went wrong'
+```
+  </Tab>
+</Tabs>
+
+<Callout type="warning" title="Error Message Safety">
+  In production mode (`isProduction: true`), error messages are always replaced with the default message to avoid exposing internal error details. This matches the behavior of next-safe-action in production.
+</Callout>
+
+## Related Functions
+
+### handleError
+
+The main error handling function that converts errors to SafeActionResult format:
+
+<AutoTypeTable path="src/error-handler.ts" name="handleError" />
+
+<Callout type="info" title="Internal Functions">
+  These functions are used internally by the mock client and typically don't need to be called directly. They're documented here for completeness and advanced use cases.
+</Callout>
+

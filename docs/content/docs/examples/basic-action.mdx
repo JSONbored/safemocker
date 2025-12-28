@@ -1,0 +1,149 @@
+---
+title: Basic Action Testing
+description: Test a simple action with input validation
+---
+
+## Basic Action Testing
+
+This example demonstrates how to test a basic action with input validation using `safemocker`. This is the simplest use case - a rate-limited action that validates input and returns data.
+
+### What This Example Shows
+
+- **Basic Action Setup**: How to create a simple action with input/output validation
+- **Type-Safe Testing**: How to use `InferSafeActionFnResult` for 100% type safety
+- **Validation Testing**: How to test both success and validation error cases
+- **Framework Compatibility**: The same test code works with both Jest and Vitest
+
+### Example Action
+
+This action creates an item with name and description validation. It uses `rateLimitedAction` which provides rate limiting middleware automatically.
+
+<DynamicCodeBlock
+  lang="typescript"
+  code={`import { z } from 'zod';
+import { rateLimitedAction } from './safe-action';
+
+export const createItem = rateLimitedAction
+  .inputSchema(
+    z.object({
+      name: z.string().min(1, 'Name is required'),
+      description: z.string().min(10, 'Description must be at least 10 characters'),
+    })
+  )
+  .outputSchema(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      createdAt: z.string(),
+    })
+  )
+  .metadata({ actionName: 'createItem', category: 'content' })
+  .action(async ({ parsedInput }) => {
+    return {
+      id: \`item-\${Date.now()}\`,
+      name: parsedInput.name,
+      description: parsedInput.description,
+      createdAt: new Date().toISOString(),
+    };
+  });`}
+/>
+
+## Test File
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createItem } from './my-action';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createItem', () => {
+  it('should create item successfully with valid input', async () => {
+    const result = await createItem({
+      name: 'My Item',
+      description: 'This is a valid description with enough characters.',
+    });
+
+    // Use InferSafeActionFnResult for 100% type safety
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.name).toBe('My Item');
+    expect(typedResult.serverError).toBeUndefined();
+    expect(typedResult.fieldErrors).toBeUndefined(); // Type-safe access!
+  });
+
+  it('should return validation errors for invalid input', async () => {
+    const result = await createItem({
+      name: '', // Invalid: min length
+      description: 'short', // Invalid: min length
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    // fieldErrors is accessible without type assertions - 100% type-safe!
+    expect(typedResult.fieldErrors).toBeDefined();
+    expect(typedResult.fieldErrors?.name).toBeDefined();
+    expect(typedResult.fieldErrors?.description).toBeDefined();
+    expect(typedResult.data).toBeUndefined();
+  });
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createItem } from './my-action';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createItem', () => {
+  it('should create item successfully with valid input', async () => {
+    const result = await createItem({
+      name: 'My Item',
+      description: 'This is a valid description with enough characters.',
+    });
+
+    // Use InferSafeActionFnResult for 100% type safety
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.name).toBe('My Item');
+    expect(typedResult.serverError).toBeUndefined();
+    expect(typedResult.fieldErrors).toBeUndefined(); // Type-safe access!
+  });
+
+  it('should return validation errors for invalid input', async () => {
+    const result = await createItem({
+      name: '', // Invalid: min length
+      description: 'short', // Invalid: min length
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    // fieldErrors is accessible without type assertions - 100% type-safe!
+    expect(typedResult.fieldErrors).toBeDefined();
+    expect(typedResult.fieldErrors?.name).toBeDefined();
+    expect(typedResult.fieldErrors?.description).toBeDefined();
+    expect(typedResult.data).toBeUndefined();
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Same Code, Different Imports">
+  The test code is identical for both Jest and Vitest - only the import statements differ. This demonstrates how `safemocker` provides a consistent testing experience across test frameworks.
+</Callout>
+
+## Key Points
+
+- ✅ **Type Safety**: Use `InferSafeActionFnResult` for full type safety
+- ✅ **No Type Assertions**: `fieldErrors` is accessible without type guards
+- ✅ **Real Behavior**: Tests behave exactly like production
+- ✅ **Simple Setup**: Just one line in `__mocks__/next-safe-action.ts`
+

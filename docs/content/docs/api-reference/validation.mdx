@@ -1,0 +1,211 @@
+---
+title: Validation
+description: Input and output validation with Zod schemas
+---
+
+## Overview
+
+Validation functions ensure that input and output data conform to Zod schemas, matching the behavior of `next-safe-action`. Validation is automatically handled by the mock client when you define `inputSchema` and `outputSchema`.
+
+<Badge variant="secondary">Internal API</Badge>
+
+<Callout type="info" title="Automatic Validation">
+  You don't need to call validation functions directly - they're used internally by the mock client. Simply define your schemas and validation happens automatically.
+</Callout>
+
+## Input Validation
+
+Input validation occurs before the action handler executes. If validation fails, the action returns immediately with `fieldErrors` populated:
+
+<AutoTypeTable path="src/validation.ts" name="validateInput" />
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+const action = client
+  .inputSchema(
+    z.object({
+      name: z.string().min(1, 'Name is required'),
+      email: z.string().email('Invalid email format'),
+      age: z.number().min(18, 'Must be 18 or older'),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    // This only runs if validation passes
+    return {
+      id: '1',
+      ...parsedInput,
+    };
+  });
+
+// Valid input
+const result1 = await action({
+  name: 'John Doe',
+  email: 'john@example.com',
+  age: 25,
+});
+// result1.data === { id: '1', name: 'John Doe', ... }
+
+// Invalid input
+const result2 = await action({
+  name: '', // Invalid: min length
+  email: 'invalid-email', // Invalid: not an email
+  age: 15, // Invalid: below minimum
+});
+// result2.fieldErrors === {
+//   name: ['Name is required'],
+//   email: ['Invalid email format'],
+//   age: ['Must be 18 or older']
+// }
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient();
+
+const action = client
+  .inputSchema(
+    z.object({
+      name: z.string().min(1, 'Name is required'),
+      email: z.string().email('Invalid email format'),
+      age: z.number().min(18, 'Must be 18 or older'),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    // This only runs if validation passes
+    return {
+      id: '1',
+      ...parsedInput,
+    };
+  });
+
+// Valid input
+const result1 = await action({
+  name: 'John Doe',
+  email: 'john@example.com',
+  age: 25,
+});
+// result1.data === { id: '1', name: 'John Doe', ... }
+
+// Invalid input
+const result2 = await action({
+  name: '', // Invalid: min length
+  email: 'invalid-email', // Invalid: not an email
+  age: 15, // Invalid: below minimum
+});
+// result2.fieldErrors === {
+//   name: ['Name is required'],
+//   email: ['Invalid email format'],
+//   age: ['Must be 18 or older']
+// }
+```
+  </Tab>
+</Tabs>
+
+## Output Validation
+
+Output validation occurs after the action handler executes. If validation fails, the action returns with `validationErrors` populated:
+
+<AutoTypeTable path="src/validation.ts" name="validateOutput" />
+
+```typescript
+const action = client
+  .inputSchema(z.object({ name: z.string() }))
+  .outputSchema(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string().email(),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    // If this doesn't match outputSchema, validationErrors will be set
+    return {
+      id: '1',
+      name: parsedInput.name,
+      // Missing email - will cause validation error
+    };
+  });
+
+const result = await action({ name: 'John' });
+// result.validationErrors === {
+//   email: ['Required']
+// }
+```
+
+<Callout type="tip" title="Output Validation in Tests">
+  Output validation is particularly useful in tests to catch bugs where handlers return data that doesn't match the expected schema. This helps ensure your handlers return the correct structure.
+</Callout>
+
+## Validation Error Structure
+
+Validation errors are returned in the `SafeActionResult` structure. See the [Types documentation](/docs/api-reference/types) for complete type details.
+
+<Callout type="warning" title="Field Errors vs Validation Errors">
+  - `fieldErrors` - Used for input validation errors (from `inputSchema`)
+  - `validationErrors` - Used for output validation errors (from `outputSchema`)
+  
+  This distinction helps you identify whether validation failed on input or output.
+</Callout>
+
+## Complex Validation Examples
+
+### Nested Objects
+
+```typescript
+const action = client
+  .inputSchema(
+    z.object({
+      user: z.object({
+        name: z.string().min(1),
+        email: z.string().email(),
+      }),
+      preferences: z.object({
+        theme: z.enum(['light', 'dark']),
+        notifications: z.boolean(),
+      }).optional(),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    return { success: true };
+  });
+```
+
+### Arrays
+
+```typescript
+const action = client
+  .inputSchema(
+    z.object({
+      tags: z.array(z.string().min(1)).min(1, 'At least one tag required'),
+      items: z.array(
+        z.object({
+          id: z.string(),
+          quantity: z.number().min(1),
+        })
+      ),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    return { success: true };
+  });
+```
+
+## Related Functions
+
+
+
+
+
+<Callout type="info" title="Internal Functions">
+  These functions are used internally by the mock client and typically don't need to be called directly. They're documented here for completeness and advanced use cases.
+</Callout>
+

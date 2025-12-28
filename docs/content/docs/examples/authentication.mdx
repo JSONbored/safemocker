@@ -1,0 +1,101 @@
+---
+title: Authentication Testing
+description: Test actions that require authentication
+---
+
+## Overview
+
+This example demonstrates how to test actions that require authentication using `safemocker`. Authentication context is automatically injected by the mock, so you can test auth-protected actions without setting up real authentication.
+
+### What This Example Shows
+
+- **Authentication Middleware**: How `authedAction` automatically provides auth context
+- **Automatic Auth Injection**: How `ctx.userId`, `ctx.userEmail`, and `ctx.authToken` are available in tests
+- **Type-Safe Auth Access**: How to access auth context with full type safety
+- **Zero Configuration**: Auth works automatically with the one-line mock setup
+
+### Example Action
+
+This action creates a post and requires authentication. The `authedAction` middleware automatically injects authentication context (`ctx.userId`, `ctx.userEmail`, `ctx.authToken`) into the handler, which is provided by `safemocker` in tests.
+
+<DynamicCodeBlock
+  lang="typescript"
+  code={`import { z } from 'zod';
+import { authedAction } from './safe-action';
+
+export const createPost = authedAction
+  .inputSchema(
+    z.object({
+      title: z.string().min(1),
+      content: z.string().min(50),
+    })
+  )
+  .metadata({ actionName: 'createPost', category: 'content' })
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.userId is automatically available from auth middleware
+    return {
+      id: \`post-\${Date.now()}\`,
+      title: parsedInput.title,
+      content: parsedInput.content,
+      authorId: ctx.userId, // From safemocker mock
+    };
+  });`}
+/>
+
+## Test File
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createPost } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createPost', () => {
+  it('should create post with authenticated user', async () => {
+    const result = await createPost({
+      title: 'My Post',
+      content: 'This is the content of my post. It has enough characters to pass validation.',
+    });
+
+    type CreatePostResult = InferSafeActionFnResult<typeof createPost>;
+    const typedResult: CreatePostResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.authorId).toBe('test-user-id'); // From safemocker
+    expect(typedResult.data?.title).toBe('My Post');
+  });
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createPost } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createPost', () => {
+  it('should create post with authenticated user', async () => {
+    const result = await createPost({
+      title: 'My Post',
+      content: 'This is the content of my post. It has enough characters to pass validation.',
+    });
+
+    type CreatePostResult = InferSafeActionFnResult<typeof createPost>;
+    const typedResult: CreatePostResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.authorId).toBe('test-user-id'); // From safemocker
+    expect(typedResult.data?.title).toBe('My Post');
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+## Key Points
+
+- ✅ **Auth Context**: `ctx.userId` is automatically injected by safemocker
+- ✅ **Type Safe**: Use `InferSafeActionFnResult` for full type safety
+- ✅ **No Setup**: Auth works automatically with the one-line mock setup
+

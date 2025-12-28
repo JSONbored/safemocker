@@ -1,0 +1,30 @@
+---
+title: Examples
+description: Real-world usage examples for safemocker
+---
+
+## Overview
+
+All examples use **real production code** from `src/actions/actions.ts`. These are the exact same actions used in production - no modifications needed for testing!
+
+## Key Points
+
+- ✅ **Test Real Code**: All examples use production actions from `src/actions/`
+- ✅ **100% Type Safe**: No type assertions needed - full TypeScript inference
+- ✅ **Complete Coverage**: Success cases, validation errors, server errors
+- ✅ **OpenAPI Docs**: See [OpenAPI Documentation](/docs/api-reference/openapi) for complete API specs
+
+## Examples
+
+<Cards>
+  <Card title="Production Actions" href="/docs/examples/production-actions" description="Real production actions with comprehensive Zod schemas - see the actual code" />
+  <Card title="Basic Action Testing" href="/docs/examples/basic-action" description="Learn how to test simple authenticated actions with full type safety" />
+  <Card title="Authentication Testing" href="/docs/examples/authentication" description="Test actions that require authentication - see how safemocker handles auth" />
+  <Card title="Validation Error Testing" href="/docs/examples/validation-errors" description="See how safemocker handles input validation errors with proper types" />
+  <Card title="Error Handling Testing" href="/docs/examples/error-handling" description="Test server-side errors and custom error messages" />
+</Cards>
+
+## Complete Example
+
+See the [Complete Working Example](/docs/getting-started/quick-start#complete-working-example) in the Quick Start guide for a full, production-ready setup.
+

@@ -1,0 +1,109 @@
+---
+title: Troubleshooting
+description: Common issues and solutions
+---
+
+## Common Issues
+
+<Accordions>
+  <Accordion title="Mock Not Working">
+    **Problem:** Jest is not using the mock file.
+
+    **Solution:** 
+    - Ensure `__mocks__/next-safe-action.ts` is in your project root (same level as `package.json`)
+    - Verify the file exports: `export * from '@jsonbored/safemocker/jest/mock';`
+    - Check that Jest is configured to use manual mocks
+
+    <Callout type="tip" title="Verify Mock is Loaded">
+      Add a console.log in your mock file to verify Jest is using it. You should see the log when running tests.
+    </Callout>
+  </Accordion>
+
+  <Accordion title="Type Errors">
+    **Problem:** TypeScript errors about `fieldErrors` being undefined.
+
+    **Solution:**
+    - Use `InferSafeActionFnResult` for proper type inference
+    - Don't use type assertions (`as any`)
+    - Ensure you're importing types from `next-safe-action` (which is mocked)
+
+    <Callout type="info" title="Type Safety">
+      `safemocker` provides full type safety. If you're seeing type errors, you may be using the wrong type utility or need to update your imports.
+    </Callout>
+  </Accordion>
+
+  <Accordion title="ESM Import Errors">
+    **Problem:** Errors about ESM modules in Jest.
+
+    **Solution:**
+    - This is exactly what `safemocker` solves! Ensure your mock file is set up correctly
+    - Verify Jest is using the mock: check that `__mocks__/next-safe-action.ts` exists
+    - Make sure the mock file is in the project root, not in `node_modules`
+
+    <Callout type="warning" title="ESM Compatibility">
+      If you're still seeing ESM errors, ensure your Jest configuration supports manual mocks and that the mock file is in the correct location.
+    </Callout>
+  </Accordion>
+
+  <Accordion title="Auth Context Not Available">
+    **Problem:** `ctx.userId` is undefined in tests.
+
+    **Solution:**
+    - Use `createAuthedActionClient` or `createCompleteActionClient` for auth actions
+    - Verify auth is enabled in your config:
+      ```typescript
+      {
+        auth: {
+          enabled: true,
+          testUserId: 'test-user-id',
+        }
+      }
+      ```
+    - Check that you're using `authedAction` or `optionalAuthAction` from your safe-action setup
+
+    <Callout type="tip" title="Default Auth Values">
+      By default, `safemocker` provides `test-user-id` as the userId. If you need custom values, configure them in your mock setup.
+    </Callout>
+  </Accordion>
+
+  <Accordion title="Validation Errors Not Showing">
+    **Problem:** Validation errors are not being returned correctly.
+
+    **Solution:**
+    - Ensure your Zod schemas have proper error messages
+    - Check that you're accessing `fieldErrors` (not `validationErrors`) for input validation
+    - Verify your input schema is correctly defined
+
+    <Callout type="info" title="Field Errors vs Validation Errors">
+      - `fieldErrors` - Input validation errors (from `inputSchema`)
+      - `validationErrors` - Output validation errors (from `outputSchema`)
+    </Callout>
+  </Accordion>
+
+  <Accordion title="Middleware Not Executing">
+    **Problem:** Custom middleware is not running in tests.
+
+    **Solution:**
+    - Verify middleware is added using `.use()` before calling `.action()`
+    - Check that middleware is added to the correct client instance
+    - Ensure middleware follows the correct signature: `async ({ next, ctx, metadata }) => { ... }`
+
+    <Callout type="tip" title="Middleware Order">
+      Middleware executes in the order it's added. Make sure you're adding middleware before defining actions.
+    </Callout>
+  </Accordion>
+</Accordions>
+
+## Getting Help
+
+If you're still experiencing issues:
+
+- Check the [GitHub Issues](https://github.com/JSONbored/safemocker/issues) for similar problems
+- Review the [Examples](/docs/examples) for working code patterns
+- Read the [API Reference](/docs/api-reference) for detailed documentation
+- Open a new issue with:
+  - Your `__mocks__/next-safe-action.ts` file
+  - Your test code
+  - The error message you're seeing
+  - Your Jest/Vitest configuration
+

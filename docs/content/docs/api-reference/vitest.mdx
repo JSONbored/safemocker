@@ -1,0 +1,119 @@
+---
+title: Vitest Adapter
+description: Vitest-specific adapter and mock setup
+---
+
+## Overview
+
+The Vitest adapter provides mocking functionality for Vitest environments. Even though Vitest supports ESM, using `safemocker` provides faster tests, easier control, consistent patterns, and better error scenario testing.
+
+<Callout type="info" title="Why Use Safemocker with Vitest?">
+  Even with ESM support, mocking provides:
+  - **Faster Tests**: No need to load the full next-safe-action library
+  - **Easier Control**: Full control over middleware behavior
+  - **Consistent Patterns**: Same testing patterns across Jest and Vitest
+  - **Better Error Testing**: Easy to test error scenarios
+</Callout>
+
+## Quick Start
+
+In your test setup file (`vitest.setup.ts`) or test file:
+
+<Tabs items={['Simple Setup', 'Custom Configuration', 'Complete Setup']} groupId="vitest-setup">
+  <Tab value="Simple Setup">
+```typescript
+// vitest.setup.ts
+import { vi } from 'vitest';
+import * as safemockerMock from '@jsonbored/safemocker/vitest/mock';
+
+vi.mock('next-safe-action', () => safemockerMock);
+```
+  </Tab>
+  <Tab value="Custom Configuration">
+```typescript
+// vitest.setup.ts
+import { vi } from 'vitest';
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+
+vi.mock('next-safe-action', () => {
+  return {
+    createSafeActionClient: createMockSafeActionClient({
+      defaultServerError: 'Something went wrong',
+      isProduction: false,
+      auth: {
+        enabled: true,
+        testUserId: 'test-user-id',
+        testUserEmail: 'test@example.com',
+        testAuthToken: 'test-token',
+      },
+    }),
+    DEFAULT_SERVER_ERROR_MESSAGE: 'Something went wrong',
+  };
+});
+```
+  </Tab>
+  <Tab value="Complete Setup">
+```typescript
+// vitest.setup.ts
+import { vi } from 'vitest';
+import { createCompleteActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const { authedAction, optionalAuthAction, rateLimitedAction } = createCompleteActionClient(
+  metadataSchema,
+  {
+    defaultServerError: 'Something went wrong',
+    isProduction: false,
+    auth: {
+      enabled: true,
+      testUserId: 'test-user-id',
+      testUserEmail: 'test@example.com',
+    },
+  }
+);
+
+vi.mock('next-safe-action', () => {
+  return {
+    createSafeActionClient: (config?: any) => {
+      // Your custom implementation
+    },
+    DEFAULT_SERVER_ERROR_MESSAGE: 'Something went wrong',
+    authedAction,
+    optionalAuthAction,
+    rateLimitedAction,
+  };
+});
+```
+  </Tab>
+</Tabs>
+
+## Available Exports
+
+The Vitest adapter exports the same functions as the Jest adapter:
+
+- `createMockSafeActionClient()` - Factory function for creating mock clients
+- `createAuthedActionClient()` - Client with authentication middleware
+- `createOptionalAuthActionClient()` - Client with optional authentication middleware
+- `createRateLimitedActionClient()` - Client with rate limiting middleware
+- `createMetadataValidatedActionClient()` - Client with metadata validation middleware
+- `createCompleteActionClient()` - Complete set of pre-configured clients
+
+### Type Utilities
+
+<AutoTypeTable path="src/jest-mock.ts" name="InferSafeActionFnResult" />
+
+<AutoTypeTable path="src/jest-mock.ts" name="InferSafeActionFnInput" />
+
+<Callout type="tip" title="Same API as Jest">
+  The Vitest adapter provides the same API as the Jest adapter, making it easy to switch between test runners or maintain consistency across projects.
+</Callout>
+
+## Testing Examples
+
+See the [Examples section](/docs/examples) for comprehensive testing examples. The examples work the same way with both Jest and Vitest.
+

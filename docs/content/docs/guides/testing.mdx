@@ -1,0 +1,265 @@
+---
+title: Testing Guide
+description: Comprehensive guide to testing with safemocker
+---
+
+## Overview
+
+`safemocker` enables true integration testing of your production `next-safe-action` code. You test your **real production actions** without any modifications.
+
+## Key Principles
+
+### 1. Test Real Production Code
+
+Your test files import and test the **exact same actions** used in production:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+// src/actions/actions.ts (PRODUCTION CODE)
+export const createPost = authedAction
+  .inputSchema(/* ... */)
+  .action(async ({ parsedInput, ctx }) => {
+    // Real production logic
+  });
+
+// src/actions/actions.test.ts (TEST CODE)
+import { describe, expect, it } from '@jest/globals';
+import { createPost } from './actions'; // Same file!
+
+describe('createPost', () => {
+  it('should work', async () => {
+    const result = await createPost({ /* ... */ });
+    // Test real production code
+  });
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+// src/actions/actions.ts (PRODUCTION CODE)
+export const createPost = authedAction
+  .inputSchema(/* ... */)
+  .action(async ({ parsedInput, ctx }) => {
+    // Real production logic
+  });
+
+// src/actions/actions.test.ts (TEST CODE)
+import { describe, expect, it } from 'vitest';
+import { createPost } from './actions'; // Same file!
+
+describe('createPost', () => {
+  it('should work', async () => {
+    const result = await createPost({ /* ... */ });
+    // Test real production code
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+### 2. 100% Type Safety
+
+Use `InferSafeActionFnResult` for complete type safety:
+
+```typescript
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+type CreatePostResult = InferSafeActionFnResult<typeof createPost>;
+
+const result: CreatePostResult = await createPost({ /* ... */ });
+
+// TypeScript knows:
+// - result.data is typed correctly
+// - result.fieldErrors exists and is typed
+// - result.serverError exists and is typed
+// No type assertions needed!
+```
+
+### 3. Test All Scenarios
+
+Cover all possible outcomes:
+
+- ✅ **Success cases**: Valid input, expected output
+- ✅ **Validation errors**: Invalid input, fieldErrors returned
+- ✅ **Server errors**: Exceptions thrown, serverError returned
+- ✅ **Authorization failures**: Auth middleware rejects
+
+## Example Test Structure
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createPost } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createPost', () => {
+  describe('Success Cases', () => {
+    it('should create post with valid input', async () => {
+      const result = await createPost({
+        title: 'My Post',
+        content: 'This is the content...',
+        slug: 'my-post',
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data?.title).toBe('My Post');
+      expect(result.fieldErrors).toBeUndefined();
+      expect(result.serverError).toBeUndefined();
+    });
+  });
+
+  describe('Validation Errors', () => {
+    it('should return fieldErrors for invalid input', async () => {
+      const result = await createPost({
+        title: '', // Invalid: too short
+        content: 'Short', // Invalid: too short
+        slug: 'INVALID', // Invalid: uppercase
+      });
+
+      expect(result.data).toBeUndefined();
+      expect(result.fieldErrors).toBeDefined();
+      expect(result.fieldErrors?.title).toBeDefined();
+      expect(result.fieldErrors?.content).toBeDefined();
+      expect(result.fieldErrors?.slug).toBeDefined();
+    });
+  });
+
+  describe('Server Errors', () => {
+    it('should handle server errors', async () => {
+      // Test error scenarios
+    });
+  });
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createPost } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createPost', () => {
+  describe('Success Cases', () => {
+    it('should create post with valid input', async () => {
+      const result = await createPost({
+        title: 'My Post',
+        content: 'This is the content...',
+        slug: 'my-post',
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data?.title).toBe('My Post');
+      expect(result.fieldErrors).toBeUndefined();
+      expect(result.serverError).toBeUndefined();
+    });
+  });
+
+  describe('Validation Errors', () => {
+    it('should return fieldErrors for invalid input', async () => {
+      const result = await createPost({
+        title: '', // Invalid: too short
+        content: 'Short', // Invalid: too short
+        slug: 'INVALID', // Invalid: uppercase
+      });
+
+      expect(result.data).toBeUndefined();
+      expect(result.fieldErrors).toBeDefined();
+      expect(result.fieldErrors?.title).toBeDefined();
+      expect(result.fieldErrors?.content).toBeDefined();
+      expect(result.fieldErrors?.slug).toBeDefined();
+    });
+  });
+
+  describe('Server Errors', () => {
+    it('should handle server errors', async () => {
+      // Test error scenarios
+    });
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+## Testing Patterns
+
+### Pattern 1: Direct Usage (Recommended)
+
+TypeScript infers types automatically:
+
+```typescript
+const result = await createPost({ /* ... */ });
+expect(result.data?.title).toBe('My Post');
+```
+
+### Pattern 2: Explicit Typing (Optional)
+
+For better IntelliSense or documentation:
+
+```typescript
+type CreatePostResult = InferSafeActionFnResult<typeof createPost>;
+const result: CreatePostResult = await createPost({ /* ... */ });
+```
+
+### Pattern 3: Type Guards (Not Needed!)
+
+With `safemocker`, you don't need type guards:
+
+```typescript
+// ❌ NOT NEEDED - safemocker provides proper types
+if (result.data) {
+  // ...
+}
+
+// ✅ BETTER - TypeScript knows the types
+expect(result.data?.title).toBe('My Post');
+```
+
+## Testing Different Action Types
+
+### Authenticated Actions
+
+```typescript
+import { createPost } from './actions';
+
+// Automatically uses test user from safemocker config
+const result = await createPost({ /* ... */ });
+expect(result.data?.authorId).toBe('test-user-id');
+```
+
+### Optional Authentication
+
+```typescript
+import { getPost } from './actions';
+
+// Works with or without auth
+const result = await getPost({ postId: '...' });
+expect(result.data?.viewerId).toBeDefined(); // If authenticated
+```
+
+### Rate Limited Actions
+
+```typescript
+import { searchPosts } from './actions';
+
+// Rate limiting is handled by middleware
+const result = await searchPosts({ query: 'test' });
+expect(result.data).toBeDefined();
+```
+
+## Best Practices
+
+1. **Test Real Code**: Import production actions directly
+2. **Use Type Inference**: Let TypeScript infer types automatically
+3. **Cover All Scenarios**: Success, validation errors, server errors
+4. **Inline Tests**: Place test files next to source files (`actions.test.ts` next to `actions.ts`)
+5. **No Type Assertions**: `safemocker` provides proper types out of the box
+6. **Test Edge Cases**: Empty strings, null values, boundary conditions
+
+## See Also
+
+- [Production Actions Example](/docs/examples/production-actions)
+- [Basic Action Testing](/docs/examples/basic-action)
+- [Validation Error Testing](/docs/examples/validation-error)
+- [Error Handling Testing](/docs/examples/error-handling)

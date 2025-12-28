@@ -1,0 +1,133 @@
+---
+title: Validation Error Testing
+description: Test validation error handling
+---
+
+## Overview
+
+This example demonstrates how to test validation errors returned by `safemocker`. When input validation fails, `safemocker` returns detailed field-level error messages that match the exact behavior of `next-safe-action` in production.
+
+### What This Example Shows
+
+- **Field-Level Errors**: How validation errors are organized by field name
+- **Detailed Error Messages**: How Zod validation messages are preserved
+- **Type-Safe Error Access**: How to access `fieldErrors` without type assertions
+- **Multiple Validation Rules**: How to test complex validation schemas with multiple rules
+
+### Example Action
+
+This action validates name, email, and age fields with specific validation rules. When validation fails, each field returns its own error message, allowing you to test specific validation scenarios.
+
+<DynamicCodeBlock
+  lang="typescript"
+  code={`import { z } from 'zod';
+import { rateLimitedAction } from './safe-action';
+
+export const createItem = rateLimitedAction
+  .inputSchema(
+    z.object({
+      name: z.string().min(1, 'Name is required'),
+      email: z.string().email('Invalid email format'),
+      age: z.number().int().min(18, 'Must be 18 or older'),
+    })
+  )
+  .action(async ({ parsedInput }) => {
+    return { id: '1', ...parsedInput };
+  });`}
+/>
+
+## Test File
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createItem } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createItem - Validation Errors', () => {
+  it('should return field errors for invalid input', async () => {
+    const result = await createItem({
+      name: '', // Invalid: min length
+      email: 'invalid-email', // Invalid: not an email
+      age: 15, // Invalid: below minimum
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    // fieldErrors is accessible without type assertions - 100% type-safe!
+    expect(typedResult.fieldErrors).toBeDefined();
+    expect(typedResult.fieldErrors?.name).toBeDefined();
+    expect(typedResult.fieldErrors?.email).toBeDefined();
+    expect(typedResult.fieldErrors?.age).toBeDefined();
+    expect(typedResult.data).toBeUndefined();
+  });
+
+  it('should return specific error messages', async () => {
+    const result = await createItem({
+      name: '',
+      email: 'invalid',
+      age: 15,
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    expect(typedResult.fieldErrors?.name).toContain('Name is required');
+    expect(typedResult.fieldErrors?.email).toContain('Invalid email format');
+    expect(typedResult.fieldErrors?.age).toContain('Must be 18 or older');
+  });
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createItem } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createItem - Validation Errors', () => {
+  it('should return field errors for invalid input', async () => {
+    const result = await createItem({
+      name: '', // Invalid: min length
+      email: 'invalid-email', // Invalid: not an email
+      age: 15, // Invalid: below minimum
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    // fieldErrors is accessible without type assertions - 100% type-safe!
+    expect(typedResult.fieldErrors).toBeDefined();
+    expect(typedResult.fieldErrors?.name).toBeDefined();
+    expect(typedResult.fieldErrors?.email).toBeDefined();
+    expect(typedResult.fieldErrors?.age).toBeDefined();
+    expect(typedResult.data).toBeUndefined();
+  });
+
+  it('should return specific error messages', async () => {
+    const result = await createItem({
+      name: '',
+      email: 'invalid',
+      age: 15,
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    expect(typedResult.fieldErrors?.name).toContain('Name is required');
+    expect(typedResult.fieldErrors?.email).toContain('Invalid email format');
+    expect(typedResult.fieldErrors?.age).toContain('Must be 18 or older');
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+## Key Points
+
+- ✅ **Type Safe**: `fieldErrors` is accessible without type assertions
+- ✅ **Detailed Errors**: Each field has its own error messages
+- ✅ **Real Behavior**: Matches exactly how `next-safe-action` works
+

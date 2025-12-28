@@ -1,0 +1,89 @@
+---
+title: Client API
+description: Mock safe action client and builders
+---
+
+## Overview
+
+The client API provides the core mocking functionality for `next-safe-action`. It replicates the real API with method chaining and proper type safety.
+
+## createMockSafeActionClient
+
+Creates a mock safe action client that replicates the `next-safe-action` API.
+
+<Badge>Core API</Badge>
+
+<AutoTypeTable path="src/client.ts" name="CreateMockSafeActionClientParams" />
+
+## MockSafeActionClient
+
+The mock safe action client class that provides the fluent API for creating actions.
+
+<Badge>Core API</Badge>
+
+The `MockSafeActionClient` class provides the core functionality for creating and executing mock actions. It supports method chaining and middleware composition.
+
+<AutoTypeTable path="src/client.ts" name="MockSafeActionClient" />
+
+**Key Methods:**
+- `use(middleware)` - Add middleware to the execution chain
+- `inputSchema(schema)` - Define input validation schema
+- `outputSchema(schema)` - Define output validation schema
+- `metadata(metadata)` - Add action metadata
+- `action(handler)` - Define the action handler
+
+## Usage Example
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient({
+  defaultServerError: 'Something went wrong',
+  isProduction: false,
+  auth: {
+    enabled: true,
+    testUserId: 'test-user-id',
+    testUserEmail: 'test@example.com',
+  },
+});
+
+const action = client
+  .inputSchema(z.object({ name: z.string() }))
+  .metadata({ actionName: 'test' })
+  .action(async ({ parsedInput }) => {
+    return { message: `Hello ${parsedInput.name}` };
+  });
+
+const result = await action({ name: 'World' });
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+import { z } from 'zod';
+
+const client = createMockSafeActionClient({
+  defaultServerError: 'Something went wrong',
+  isProduction: false,
+  auth: {
+    enabled: true,
+    testUserId: 'test-user-id',
+    testUserEmail: 'test@example.com',
+  },
+});
+
+const action = client
+  .inputSchema(z.object({ name: z.string() }))
+  .metadata({ actionName: 'test' })
+  .action(async ({ parsedInput }) => {
+    return { message: `Hello ${parsedInput.name}` };
+  });
+
+const result = await action({ name: 'World' });
+```
+  </Tab>
+</Tabs>
+

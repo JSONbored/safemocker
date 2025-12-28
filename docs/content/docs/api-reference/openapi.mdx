@@ -1,0 +1,87 @@
+---
+title: OpenAPI Documentation
+description: Complete OpenAPI 3.1 specification for example server actions
+---
+
+## Overview
+
+This page provides comprehensive OpenAPI 3.1 documentation for all example server actions in `safemocker`. All schemas are generated from Zod schemas with full type safety and validation.
+
+<Callout type="info" title="Example Schemas">
+  These OpenAPI schemas are for **example purposes only** - they document the example actions in `src/actions/actions.ts`. These are not actual REST API endpoints, but rather Next.js server actions that demonstrate real-world usage patterns with comprehensive Zod schema validation.
+</Callout>
+
+## Interactive API Explorer
+
+<Callout type="warning" title="Build Note">
+  The interactive API explorer may not render during static build. This is expected and the page will work correctly when deployed with SSR.
+</Callout>
+
+<div suppressHydrationWarning>
+  <APIPage />
+</div>
+
+<Callout type="warning" title="Server-Side Rendering Required">
+  The interactive API explorer requires server-side rendering (SSR). For full interactive documentation with the ability to try API endpoints, deploy the docs with SSR enabled.
+</Callout>
+
+## Schema Details
+
+All input and output schemas are defined using Zod with comprehensive OpenAPI metadata, ensuring:
+
+- ✅ **Type Safety**: Full TypeScript inference with no type assertions needed
+- ✅ **Validation**: Runtime validation with detailed error messages for all fields
+- ✅ **Documentation**: Auto-generated OpenAPI 3.1 specs with descriptions and examples
+- ✅ **Examples**: Real-world usage examples for each schema field
+- ✅ **Error Handling**: Complete error response schemas (validation errors, server errors)
+
+### Schema Robustness
+
+Each schema includes:
+- **Field Descriptions**: Clear descriptions of what each field represents
+- **Validation Rules**: Min/max lengths, regex patterns, UUID validation, etc.
+- **Examples**: Realistic example values for all fields
+- **Type Information**: Proper TypeScript types with full inference
+- **Error Messages**: Custom error messages for validation failures
+
+## Available Actions
+
+### Posts
+
+- **POST /actions/createPost** - Create a new post (requires authentication)
+- **POST /actions/getPost** - Get a post by ID (optional authentication)
+- **POST /actions/updatePost** - Update a post (requires authentication + authorization)
+- **POST /actions/deletePost** - Delete a post (requires authentication + authorization)
+
+### Search
+
+- **POST /actions/searchPosts** - Search posts by query (rate limited, optional authentication)
+
+## Using the Schemas
+
+All schemas are available in `src/actions/actions.ts` and can be imported directly:
+
+```typescript
+import { createPost, getPost, updatePost, deletePost, searchPosts } from './actions';
+```
+
+Each action includes:
+- Input schema validation
+- Output schema validation
+- Comprehensive error handling
+- Type-safe results
+
+## OpenAPI Specification
+
+The complete OpenAPI 3.1 specification is available in `openapi.json`. The specification includes:
+
+- **Complete Schema Definitions**: All input and output schemas with full metadata
+- **Request/Response Examples**: Example requests and responses for each endpoint
+- **Error Responses**: Detailed error response schemas for validation and server errors
+- **Authentication**: Documentation of authentication requirements
+- **Rate Limiting**: Documentation of rate limiting behavior
+
+<Callout type="tip" title="Generating the OpenAPI Spec">
+  The OpenAPI specification is generated from Zod schemas using `@asteasolutions/zod-to-openapi`. Run `pnpm openapi:generate` in the docs directory to regenerate the specification.
+</Callout>
+

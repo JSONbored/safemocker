@@ -1,0 +1,130 @@
+---
+title: Schema Best Practices
+description: Best practices for creating robust Zod schemas with OpenAPI documentation
+---
+
+## Overview
+
+This guide covers best practices for creating robust Zod schemas that work seamlessly with `safemocker` and generate beautiful OpenAPI documentation.
+
+## Schema Design Principles
+
+### 1. Comprehensive Validation
+
+Always include validation rules that match your business logic:
+
+```typescript
+z.object({
+  // ✅ GOOD - Comprehensive validation
+  title: z.string()
+    .min(1, 'Title is required')
+    .max(200, 'Title must be less than 200 characters'),
+  
+  // ❌ BAD - No validation
+  title: z.string(),
+})
+```
+
+### 2. Clear Error Messages
+
+Provide descriptive error messages for all validation rules:
+
+```typescript
+// ✅ GOOD - Clear error messages
+slug: z.string()
+  .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
+
+// ❌ BAD - Generic error message
+slug: z.string().regex(/^[a-z0-9-]+$/),
+```
+
+### 3. Use Appropriate Types
+
+Choose the right Zod type for your data:
+
+```typescript
+// ✅ GOOD - UUID validation
+postId: z.string().uuid('Invalid post ID'),
+
+// ✅ GOOD - Email validation
+email: z.string().email('Invalid email format'),
+
+// ✅ GOOD - Number with constraints
+limit: z.number().int().min(1).max(50).optional(),
+```
+
+### 4. Optional Fields
+
+Mark optional fields explicitly:
+
+```typescript
+// ✅ GOOD - Explicit optional
+published: z.boolean().optional(),
+tags: z.array(z.string().min(1)).optional(),
+
+// ❌ BAD - Implicit optional (confusing)
+published: z.boolean(),
+```
+
+### 5. Array Validation
+
+Validate array contents, not just the array itself:
+
+```typescript
+// ✅ GOOD - Validates each tag
+tags: z.array(z.string().min(1)).optional(),
+
+// ❌ BAD - No validation of array items
+tags: z.array(z.string()).optional(),
+```
+
+## Output Schema Best Practices
+
+Always define output schemas for type safety:
+
+```typescript
+.outputSchema(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    content: z.string(),
+    // ... all fields
+  })
+)
+```
+
+Benefits:
+- ✅ Catches output bugs in tests
+- ✅ Ensures API contract consistency
+- ✅ Generates better OpenAPI documentation
+
+## Error Handling
+
+Handle all error scenarios:
+
+```typescript
+// Validation errors (automatic via Zod)
+// Server errors (caught and formatted)
+// Authorization errors (thrown in action handler)
+```
+
+## Real-World Example
+
+See `src/actions/actions.ts` for complete examples of robust schemas with:
+- Comprehensive validation
+- Clear error messages
+- Proper types
+- Optional fields
+- Array validation
+- Output schemas
+
+## OpenAPI Integration
+
+For OpenAPI documentation generation, ensure your schemas include:
+- Field descriptions
+- Example values
+- Validation constraints
+- Type information
+
+See the [OpenAPI documentation](/docs/api-reference/openapi) for complete schema details.
+

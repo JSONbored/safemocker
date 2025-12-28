@@ -1,0 +1,66 @@
+---
+title: Types
+description: TypeScript types and interfaces
+---
+
+## Overview
+
+This page documents all TypeScript types and interfaces exported by `safemocker`.
+
+## SafeActionResult
+
+The core result structure that matches `next-safe-action`'s return type:
+
+<Badge>Core Type</Badge>
+
+<AutoTypeTable path="src/types.ts" name="SafeActionResultType" />
+
+<Callout type="info" title="Generic Type">
+  The actual `SafeActionResult` type is generic:
+  ```typescript
+  interface SafeActionResult<TData>
+  ```
+  
+  The interface above uses a concrete data type (`{ id: string; name: string }`) to demonstrate the structure. In practice, `TData` can be any type including primitives, objects, arrays, or complex nested structures.
+  
+  **Mutual Exclusivity**: Only one of `data`, `fieldErrors`, or `serverError` will be defined in a result. If validation fails, `fieldErrors` is set. If the handler throws, `serverError` is set. If everything succeeds, `data` is set.
+</Callout>
+
+## MockSafeActionClientConfig
+
+Configuration options for creating a mock client:
+
+<AutoTypeTable path="src/types.ts" name="MockSafeActionClientConfig" />
+
+## Middleware
+
+The middleware function type:
+
+<AutoTypeTable path="src/types.ts" name="MiddlewareType" />
+
+<Callout type="info" title="Generic Type">
+  The actual `Middleware` type is generic:
+  ```typescript
+  type Middleware<TContext extends Record<string, unknown> = Record<string, unknown>, TReturn = unknown>
+  ```
+  
+  The interface above uses concrete types to demonstrate the structure. In practice, you'll use the generic type with your specific context and return types.
+</Callout>
+
+## ActionHandler
+
+The action handler function type:
+
+<AutoTypeTable path="src/types.ts" name="ActionHandlerType" />
+
+<Callout type="info" title="Generic Type">
+  The actual `ActionHandler` type is generic:
+  ```typescript
+  type ActionHandler<TInput, TOutput, TContext extends Record<string, unknown> = Record<string, unknown>>
+  ```
+  
+  The interface above uses concrete types to demonstrate the structure. In practice, you'll use the generic type with your specific input, output, and context types.
+</Callout>
+
+
+

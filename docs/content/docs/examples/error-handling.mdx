@@ -1,0 +1,137 @@
+---
+title: Error Handling Testing
+description: Test server error scenarios
+---
+
+## Overview
+
+This example demonstrates how to test server error handling with `safemocker`. When an action throws an error, `safemocker` catches it and returns it as `serverError` in the result, matching production behavior.
+
+### What This Example Shows
+
+- **Error Catching**: How server errors are automatically caught and formatted
+- **Error Message Testing**: How to verify specific error messages
+- **Success vs Error Cases**: How to test both success and error scenarios
+- **Configurable Errors**: How to customize error messages for different environments
+
+### Example Action with Error
+
+This action demonstrates error handling by throwing an error when a specific input is provided. In tests, the error is caught and returned as `serverError`, allowing you to verify error handling behavior.
+
+<DynamicCodeBlock
+  lang="typescript"
+  code={`import { z } from 'zod';
+import { rateLimitedAction } from './safe-action';
+
+export const riskyAction = rateLimitedAction
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput }) => {
+    if (parsedInput.id === 'error') {
+      throw new Error('Something went wrong');
+    }
+    return { id: parsedInput.id, success: true };
+  });`}
+/>
+
+## Test File
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { riskyAction } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('riskyAction - Error Handling', () => {
+  it('should return server error when action throws', async () => {
+    const result = await riskyAction({ id: 'error' });
+
+    type RiskyActionResult = InferSafeActionFnResult<typeof riskyAction>;
+    const typedResult: RiskyActionResult = result;
+
+    expect(typedResult.serverError).toBeDefined();
+    expect(typedResult.serverError).toContain('Something went wrong');
+    expect(typedResult.data).toBeUndefined();
+    expect(typedResult.fieldErrors).toBeUndefined();
+  });
+
+  it('should return data when action succeeds', async () => {
+    const result = await riskyAction({ id: 'success' });
+
+    type RiskyActionResult = InferSafeActionFnResult<typeof riskyAction>;
+    const typedResult: RiskyActionResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.success).toBe(true);
+    expect(typedResult.serverError).toBeUndefined();
+  });
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { riskyAction } from './actions';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('riskyAction - Error Handling', () => {
+  it('should return server error when action throws', async () => {
+    const result = await riskyAction({ id: 'error' });
+
+    type RiskyActionResult = InferSafeActionFnResult<typeof riskyAction>;
+    const typedResult: RiskyActionResult = result;
+
+    expect(typedResult.serverError).toBeDefined();
+    expect(typedResult.serverError).toContain('Something went wrong');
+    expect(typedResult.data).toBeUndefined();
+    expect(typedResult.fieldErrors).toBeUndefined();
+  });
+
+  it('should return data when action succeeds', async () => {
+    const result = await riskyAction({ id: 'success' });
+
+    type RiskyActionResult = InferSafeActionFnResult<typeof riskyAction>;
+    const typedResult: RiskyActionResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.success).toBe(true);
+    expect(typedResult.serverError).toBeUndefined();
+  });
+});
+```
+  </Tab>
+</Tabs>
+
+## Custom Error Messages
+
+You can configure the default error message:
+
+<Tabs items={['Jest', 'Vitest']} groupId="test-framework" persist>
+  <Tab value="Jest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+
+const client = createMockSafeActionClient({
+  defaultServerError: 'An unexpected error occurred',
+  isProduction: true, // Use generic error messages
+});
+```
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { createMockSafeActionClient } from '@jsonbored/safemocker/vitest';
+
+const client = createMockSafeActionClient({
+  defaultServerError: 'An unexpected error occurred',
+  isProduction: true, // Use generic error messages
+});
+```
+  </Tab>
+</Tabs>
+
+## Key Points
+
+- ✅ **Error Handling**: Server errors are automatically caught and formatted
+- ✅ **Type Safe**: `serverError` is accessible without type assertions
+- ✅ **Configurable**: Customize error messages per your needs
+

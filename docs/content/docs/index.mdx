@@ -1,0 +1,52 @@
+---
+title: safemocker
+description: Type-safe, Jest & Vitest-compatible mock for next-safe-action
+---
+
+<div className="flex flex-col gap-4">
+
+![safemocker](https://socialify.git.ci/JSONbored/safemocker/image?custom_description=Type-safe+mock+for+next-safe-action+v8.&description=1&font=Source+Code+Pro&forks=1&issues=1&name=1&owner=1&pattern=Plus&pulls=1&stargazers=1&theme=Dark)
+
+`safemocker` solves the critical problem of testing [next-safe-action](https://github.com/TheEdoRan/next-safe-action) v8 in Jest environments where ESM modules (`.mjs` files) cannot be directly imported. It provides a comprehensive mocking solution that's type-safe, robust, and extensive, allowing easy testing for all next-safe-action usage throughout your project.
+
+## Features
+
+- ✅ **Works with Jest** - Solves ESM compatibility issues (primary use case)
+- ✅ **Works with Vitest** - Even with ESM support, mocking provides faster tests, easier control, consistent patterns, and better error scenario testing
+- ✅ **Replicates real middleware behavior** - Auth, validation, error handling work exactly like the real library
+- ✅ **Returns proper SafeActionResult structure** - Type-safe, matches real API exactly
+- ✅ **Type-safe API** - Full TypeScript integration with proper inference
+- ✅ **Easy to use** - Similar to [Prismocker](https://github.com/JSONbored/prismocker) pattern, minimal setup required
+- ✅ **Standalone package** - Can be extracted to separate repo for OSS distribution
+
+## Quick Start
+
+Get started in 3 simple steps:
+
+<Cards>
+  <Card title="Installation" href="/docs/getting-started/installation" description="Install safemocker in your project" />
+  <Card title="Quick Start" href="/docs/getting-started/quick-start" description="Get up and running in minutes" />
+  <Card title="API Reference" href="/docs/api-reference" description="Complete API documentation" />
+  <Card title="Examples" href="/docs/examples" description="Real-world usage examples" />
+</Cards>
+
+## Installation
+
+```bash
+npm install --save-dev @jsonbored/safemocker
+# or
+pnpm add -D @jsonbored/safemocker
+# or
+yarn add -D @jsonbored/safemocker
+```
+
+## What's Next?
+
+- Read the [Getting Started Guide](/docs/getting-started/quick-start) to set up safemocker in your project
+- Check out the [API Reference](/docs/api-reference) for complete documentation with TypeScript type tables
+- View the [OpenAPI Documentation](/docs/api-reference/openapi) for interactive API explorer
+- Explore [Examples](/docs/examples) to see real-world usage patterns from production code
+- Learn about [Schema Best Practices](/docs/getting-started/schema-best-practices) for creating robust Zod schemas
+- Read [Guides](/docs/guides) for advanced topics and troubleshooting
+
+</div>

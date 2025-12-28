@@ -1,0 +1,86 @@
+---
+title: Migration Guide
+description: Migrate from manual mocks or other testing approaches to safemocker
+---
+
+## Migrating from Manual Mocks
+
+If you're currently using manual mocks for `next-safe-action`, migrating to `safemocker` is straightforward.
+
+### Before (Manual Mock)
+
+```typescript
+// __mocks__/next-safe-action.ts
+export const createSafeActionClient = jest.fn(() => ({
+  use: jest.fn(),
+  inputSchema: jest.fn(),
+}));
+```
+
+### After (safemocker)
+
+```typescript
+// __mocks__/next-safe-action.ts
+export * from '@jsonbored/safemocker/jest/mock';
+```
+
+That's it! `safemocker` provides a complete, type-safe mock that replicates the real `next-safe-action` behavior.
+
+## Benefits of Migration
+
+- ✅ **Type Safety** - Full TypeScript support with proper inference
+- ✅ **Real Behavior** - Replicates actual middleware execution
+- ✅ **Less Code** - No need to manually mock every function
+- ✅ **Better Tests** - Tests behave exactly like production
+- ✅ **Future Proof** - Automatically supports new `next-safe-action` features
+
+## Step-by-Step Migration
+
+<Steps>
+  <Step title="Install safemocker">
+    Install `safemocker` as a dev dependency:
+
+    ```bash
+    pnpm add -D @jsonbored/safemocker
+    ```
+
+    Or with npm:
+    ```bash
+    npm install --save-dev @jsonbored/safemocker
+    ```
+  </Step>
+
+  <Step title="Replace your mock file">
+    Replace your existing mock file with a one-line export:
+
+    ```typescript
+    // __mocks__/next-safe-action.ts
+    export * from '@jsonbored/safemocker/jest/mock';
+    ```
+
+    That's it! No other configuration needed.
+  </Step>
+
+  <Step title="Update your tests">
+    Update your tests to use proper type inference:
+
+    - Remove any manual type assertions (`as any`, `as SomeType`)
+    - Use `InferSafeActionFnResult` for type safety
+    - Tests should work without any other changes!
+
+    <Callout type="tip" title="Type Safety">
+      With `safemocker`, you get full type safety out of the box. No need for type assertions!
+    </Callout>
+  </Step>
+
+  <Step title="Verify">
+    Run your tests to verify everything works:
+
+    ```bash
+    pnpm test
+    ```
+
+    Your tests should pass with better type safety and more accurate behavior.
+  </Step>
+</Steps>
+

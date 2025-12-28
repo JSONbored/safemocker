@@ -1,0 +1,321 @@
+---
+title: Quick Start
+description: Get started with safemocker in 3 simple steps
+---
+
+Follow these exact steps to get `safemocker` working in your project. **Everything is copy-pasteable!**
+
+<Steps>
+  <Step title="Create Mock File (One Line!)">
+    Create the mock file in your **project root** (same level as `package.json`):
+
+<Tabs items={['Jest', 'Vitest']} groupId="quickstart-setup" persist>
+  <Tab value="Jest">
+    Create `__mocks__/next-safe-action.ts`:
+
+```typescript
+export * from '@jsonbored/safemocker/jest/mock';
+```
+
+**That's it!** Jest automatically uses this file when you import `next-safe-action` in your tests.
+  </Tab>
+  <Tab value="Vitest">
+    Create `vitest.setup.ts`:
+
+```typescript
+import { vi } from 'vitest';
+import * as safemockerMock from '@jsonbored/safemocker/vitest/mock';
+
+vi.mock('next-safe-action', () => safemockerMock);
+```
+
+Then configure `vitest.config.ts` to use the setup file:
+
+```typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    setupFiles: ['./vitest.setup.ts'],
+  },
+});
+```
+
+**That's it!** Vitest will use the mock when you import `next-safe-action` in your tests.
+  </Tab>
+</Tabs>
+  </Step>
+
+  <Step title="Create Your Production safe-action.ts File">
+    Create `src/actions/safe-action.ts` (or wherever you keep your actions). **This file works in BOTH test and production** - no modifications needed!
+
+```typescript
+import { createSafeActionClient, DEFAULT_SERVER_ERROR_MESSAGE } from 'next-safe-action';
+import * as nextSafeActionModule from 'next-safe-action';
+import { z } from 'zod';
+
+// Define your metadata schema
+const actionMetadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z
+    .enum(['analytics', 'form', 'content', 'user', 'admin', 'reputation', 'mfa'])
+    .optional(),
+});
+
+export type ActionMetadata = z.infer<typeof actionMetadataSchema>;
+
+// Create base action client
+export const actionClient = createSafeActionClient({
+  defineMetadataSchema() {
+    return actionMetadataSchema;
+  },
+  handleServerError(error) {
+    // In production, use your logging library here
+    console.error('Server action error:', error);
+    return DEFAULT_SERVER_ERROR_MESSAGE;
+  },
+}).use(async ({ next }) => {
+  // Add initial context (userAgent, startTime, etc.)
+  const startTime = performance.now();
+  // In production: const headersList = await headers();
+  // const userAgent = headersList.get('user-agent') || 'unknown';
+  const userAgent = 'production-user-agent'; // Replace with real headers() in production
+
+  return next({
+    ctx: {
+      userAgent,
+      startTime,
+    },
+  });
+});
+
+// Create logged action (with error handling)
+const loggedAction = actionClient.use(async ({ next, metadata }) => {
+  try {
+    return await next();
+  } catch (error) {
+    const actionName = metadata?.actionName ?? 'unknown';
+    console.error(`Action ${actionName} failed:`, error);
+    throw error;
+  }
+});
+
+// Create rate limited action (with metadata validation)
+const realRateLimitedAction = loggedAction.use(async ({ next, metadata }) => {
+  const parsedMetadata = actionMetadataSchema.safeParse(metadata);
+  if (!parsedMetadata.success) {
+    throw new Error('Invalid action configuration');
+  }
+  return next();
+});
+
+// Extract mocked actions if available (only in tests via safemocker)
+// In production, these don't exist in next-safe-action, so we create our own
+const mockAuthedAction = 'authedAction' in nextSafeActionModule 
+  ? (nextSafeActionModule as any).authedAction 
+  : undefined;
+const mockOptionalAuthAction = 'optionalAuthAction' in nextSafeActionModule 
+  ? (nextSafeActionModule as any).optionalAuthAction 
+  : undefined;
+const mockRateLimitedAction = 'rateLimitedAction' in nextSafeActionModule 
+  ? (nextSafeActionModule as any).rateLimitedAction 
+  : undefined;
+
+// Export rateLimitedAction: use mock in tests, real in production
+export const rateLimitedAction = mockRateLimitedAction ?? realRateLimitedAction;
+
+// Create production authedAction
+const realAuthedAction = realRateLimitedAction.use(async ({ next, metadata }) => {
+  // In production, add your real authentication middleware here
+  // Example: Check session, validate JWT, get user from database
+  const authCtx = {
+    userId: 'production-user-id', // Replace with real auth logic
+    userEmail: 'user@example.com', // Replace with real auth logic
+    authToken: 'production-token', // Replace with real auth logic
+  };
+
+  return next({
+    ctx: authCtx,
+  });
+});
+
+// Export authedAction: use mock in tests, real in production
+export const authedAction = mockAuthedAction ?? realAuthedAction;
+
+// Create production optionalAuthAction
+const realOptionalAuthAction = realRateLimitedAction.use(async ({ next, metadata }) => {
+  // In production, add your real optional authentication middleware here
+  const authCtx = {
+    user: null as { id: string; email: string } | null,
+    userId: undefined as string | undefined,
+    userEmail: undefined as string | undefined,
+    authToken: undefined as string | undefined,
+  };
+
+  return next({
+    ctx: authCtx,
+  });
+});
+
+// Export optionalAuthAction: use mock in tests, real in production
+export const optionalAuthAction = mockOptionalAuthAction ?? realOptionalAuthAction;
+```
+
+**Key Point:** This file uses the **real** `next-safe-action` API. In tests, `next-safe-action` is automatically replaced with the mock from Step 1. In production, it uses the real library. **Zero modifications needed between environments!**
+  </Step>
+
+  <Step title="Create Your Actions and Tests">
+    Create `src/actions/my-action.ts`:
+
+```typescript
+import { z } from 'zod';
+import { authedAction } from './safe-action';
+
+export const createItem = authedAction
+  .inputSchema(
+    z.object({
+      name: z.string().min(1, 'Name is required'),
+      description: z.string().min(10, 'Description must be at least 10 characters'),
+    })
+  )
+  .outputSchema(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      authorId: z.string(),
+      createdAt: z.string(),
+    })
+  )
+  .metadata({ actionName: 'createItem', category: 'content' })
+  .action(async ({ parsedInput, ctx }) => {
+    // Your business logic here
+    // In production, this would save to database
+    return {
+      id: `item-${Date.now()}`,
+      name: parsedInput.name,
+      description: parsedInput.description,
+      authorId: ctx.userId, // From auth middleware
+      createdAt: new Date().toISOString(),
+    };
+  });
+```
+
+Create `src/actions/my-action.test.ts` (same directory, inline test):
+
+<Tabs items={['Jest', 'Vitest']} groupId="quickstart-tests" persist>
+  <Tab value="Jest">
+```typescript
+import { describe, expect, it } from '@jest/globals';
+import { createItem } from './my-action';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createItem', () => {
+  it('should create item successfully with valid input', async () => {
+    const result = await createItem({
+      name: 'My Item',
+      description: 'This is a valid description with enough characters.',
+    });
+
+    // Use InferSafeActionFnResult for 100% type safety - NO type assertions needed!
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.name).toBe('My Item');
+    expect(typedResult.data?.authorId).toBe('test-user-id'); // From safemocker mock
+    expect(typedResult.serverError).toBeUndefined();
+    expect(typedResult.fieldErrors).toBeUndefined(); // Type-safe access!
+  });
+
+  it('should return validation errors for invalid input', async () => {
+    const result = await createItem({
+      name: '', // Invalid: min length
+      description: 'short', // Invalid: min length
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    // fieldErrors is accessible without type assertions - 100% type-safe!
+    expect(typedResult.fieldErrors).toBeDefined();
+    expect(typedResult.fieldErrors?.name).toBeDefined();
+    expect(typedResult.fieldErrors?.description).toBeDefined();
+    expect(typedResult.data).toBeUndefined();
+    expect(typedResult.serverError).toBeUndefined();
+  });
+});
+```
+
+**That's it!** Run `pnpm test` (or `npm test`) and everything works with 100% type safety.
+  </Tab>
+  <Tab value="Vitest">
+```typescript
+import { describe, expect, it } from 'vitest';
+import { createItem } from './my-action';
+import type { InferSafeActionFnResult } from 'next-safe-action';
+
+describe('createItem', () => {
+  it('should create item successfully with valid input', async () => {
+    const result = await createItem({
+      name: 'My Item',
+      description: 'This is a valid description with enough characters.',
+    });
+
+    // Use InferSafeActionFnResult for 100% type safety - NO type assertions needed!
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    expect(typedResult.data).toBeDefined();
+    expect(typedResult.data?.name).toBe('My Item');
+    expect(typedResult.data?.authorId).toBe('test-user-id'); // From safemocker mock
+    expect(typedResult.serverError).toBeUndefined();
+    expect(typedResult.fieldErrors).toBeUndefined(); // Type-safe access!
+  });
+
+  it('should return validation errors for invalid input', async () => {
+    const result = await createItem({
+      name: '', // Invalid: min length
+      description: 'short', // Invalid: min length
+    });
+
+    type CreateItemResult = InferSafeActionFnResult<typeof createItem>;
+    const typedResult: CreateItemResult = result;
+
+    // fieldErrors is accessible without type assertions - 100% type-safe!
+    expect(typedResult.fieldErrors).toBeDefined();
+    expect(typedResult.fieldErrors?.name).toBeDefined();
+    expect(typedResult.fieldErrors?.description).toBeDefined();
+    expect(typedResult.data).toBeUndefined();
+    expect(typedResult.serverError).toBeUndefined();
+  });
+});
+```
+
+**That's it!** Run `pnpm test` (or `npm test`) and everything works with 100% type safety.
+  </Tab>
+</Tabs>
+  </Step>
+</Steps>
+
+## How It Works
+
+1. **In Tests:** 
+   - **Jest:** When you import `next-safe-action`, Jest automatically uses `__mocks__/next-safe-action.ts`, which exports `safemocker`'s mock.
+   - **Vitest:** The `vitest.setup.ts` file mocks `next-safe-action` using `vi.mock()`, which exports `safemocker`'s mock.
+   - Your `safe-action.ts` file uses the mock, so tests run without real auth/database.
+
+2. **In Production:** When you import `next-safe-action`, it uses the real library. Your `safe-action.ts` file creates its own middleware chain, so production works normally.
+
+3. **Zero Configuration:** The same `safe-action.ts` file works in both environments. No modifications needed!
+
+## Complete Working Example
+
+See `src/actions/` in this repository for a complete, working example:
+- **`__mocks__/next-safe-action.ts`** (at root) - One-line mock setup
+- **`src/actions/safe-action.ts`** - Production setup (works in test & prod)
+- **`src/actions/actions.ts`** - Example actions (create, get, update, delete, search)
+- **`src/actions/actions.test.ts`** - Complete test suite (100% type-safe, no assertions)
+
+**Copy these files to your project and you're ready to go!** Everything is pre-configured and works out of the box.
+

@@ -1,0 +1,119 @@
+---
+title: Jest Adapter
+description: Jest-specific adapter and mock setup
+---
+
+## Overview
+
+The Jest adapter provides a one-line mock setup for Jest environments. It solves the critical problem of testing `next-safe-action` v8 in Jest environments where ESM modules (`.mjs` files) cannot be directly imported.
+
+<Callout type="info" title="Primary Use Case">
+  The Jest adapter is the primary use case for `safemocker`. It solves ESM compatibility issues when testing `next-safe-action` v8 in Jest environments.
+</Callout>
+
+## Quick Start
+
+Create `__mocks__/next-safe-action.ts` in your project root:
+
+```typescript
+export * from '@jsonbored/safemocker/jest/mock';
+```
+
+That's it! Jest will automatically use this mock when you import `next-safe-action` in your tests.
+
+<Callout type="tip" title="Zero Configuration">
+  The default mock works out of the box with sensible defaults. No configuration needed for most use cases!
+</Callout>
+
+## Advanced Usage
+
+If you need custom configuration, you can use the adapter directly:
+
+<Tabs items={['Simple Setup', 'Custom Configuration', 'Complete Setup']} groupId="jest-setup">
+  <Tab value="Simple Setup">
+```typescript
+// __mocks__/next-safe-action.ts
+export * from '@jsonbored/safemocker/jest/mock';
+```
+  </Tab>
+  <Tab value="Custom Configuration">
+```typescript
+// __mocks__/next-safe-action.ts
+import { createMockSafeActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+export function createSafeActionClient(config?: any) {
+  return createMockSafeActionClient({
+    defaultServerError: 'Something went wrong',
+    isProduction: false,
+    auth: {
+      testUserId: 'custom-user-id',
+      testUserEmail: 'custom@example.com',
+    },
+  });
+}
+
+export const DEFAULT_SERVER_ERROR_MESSAGE = 'Something went wrong';
+```
+  </Tab>
+  <Tab value="Complete Setup">
+```typescript
+// __mocks__/next-safe-action.ts
+import { createCompleteActionClient } from '@jsonbored/safemocker/jest';
+import { z } from 'zod';
+
+const metadataSchema = z.object({
+  actionName: z.string().min(1),
+  category: z.enum(['user', 'admin']).optional(),
+});
+
+const { authedAction, optionalAuthAction, rateLimitedAction } = createCompleteActionClient(
+  metadataSchema,
+  {
+    defaultServerError: 'Something went wrong',
+    isProduction: false,
+    auth: {
+      enabled: true,
+      testUserId: 'custom-user-id',
+      testUserEmail: 'custom@example.com',
+    },
+  }
+);
+
+export function createSafeActionClient(config?: any) {
+  // Your custom implementation
+}
+
+export const DEFAULT_SERVER_ERROR_MESSAGE = 'Something went wrong';
+export { authedAction, optionalAuthAction, rateLimitedAction };
+```
+  </Tab>
+</Tabs>
+
+## Available Exports
+
+The Jest adapter exports:
+
+- `createSafeActionClient()` - Default factory function matching next-safe-action API
+- `DEFAULT_SERVER_ERROR_MESSAGE` - Default error message constant
+- `authedAction` - Pre-configured action client with authentication
+- `optionalAuthAction` - Pre-configured action client with optional authentication
+- `rateLimitedAction` - Pre-configured action client with rate limiting
+- `InferSafeActionFnResult<T>` - Type utility for inferring result types
+- `InferSafeActionFnInput<T>` - Type utility for inferring input types
+- `SafeActionResult<T>` - Result type with fieldErrors support
+
+### Type Utilities
+
+<AutoTypeTable path="src/jest-mock.ts" name="InferSafeActionFnResult" />
+
+<AutoTypeTable path="src/jest-mock.ts" name="InferSafeActionFnInput" />
+
+<Callout type="warning" title="Type Safety">
+  All exported types match next-safe-action's API, ensuring your tests work with the same type system as production code.
+</Callout>
+
+## Testing Examples
+
+See the [Examples section](/docs/examples) for comprehensive testing examples using the Jest adapter.
+
